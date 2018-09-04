@@ -13,26 +13,26 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
-#define SERVERPORT "10010"	// the port users will be connecting to
+#define SERVERPORT "10022"	// the port users will be connecting to
 
-int main(int argc, char *argv[])
+int main(int argc, char *argv[]) //command line prompt: client servername port#
 {
 	int sockfd;
 	struct addrinfo hints, *servinfo, *p;
 	int rv;
 	int numbytes;
 
-	if (argc != 3) {
-		fprintf(stderr,"usage: talker hostname message\n");
+	if (argc != 3) { // if the user doesn't enter in the correct command prompt
+		fprintf(stderr,"usage: talker hostname message\n"); //print error
 		exit(1);
 	}
 
-	memset(&hints, 0, sizeof hints);
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_DGRAM;
+	memset(&hints, 0, sizeof hints); //create memory the size of hints struct
+	hints.ai_family = AF_UNSPEC; //assign the address family of hints struct to AF_UNSPEC
+	hints.ai_socktype = SOCK_DGRAM; //assign the socket type of hints struct to SOCK_DGRAM, which supports connectionless datagrams
 
-	if ((rv = getaddrinfo(argv[1], SERVERPORT, &hints, &servinfo)) != 0) {
-		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+	if ((rv = getaddrinfo(argv[1], SERVERPORT, &hints, &servinfo)) != 0) { //argv[1] is servername
+		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv)); //if this does not return 0, error getting server data
 		return 1;
 	}
 
@@ -47,12 +47,12 @@ int main(int argc, char *argv[])
 		break;
 	}
 
-	if (p == NULL) {
+	if (p == NULL) { //client failed to create socket
 		fprintf(stderr, "talker: failed to create socket\n");
 		return 2;
 	}
 
-	if ((numbytes = sendto(sockfd, argv[2], strlen(argv[2]), 0,
+	if ((numbytes = sendto(sockfd, argv[2], strlen(argv[2]), 0, //client failed to send message
 			 p->ai_addr, p->ai_addrlen)) == -1) {
 		perror("talker: sendto");
 		exit(1);
@@ -60,7 +60,7 @@ int main(int argc, char *argv[])
 
 	freeaddrinfo(servinfo);
 
-	printf("talker: sent %d bytes to %s\n", numbytes, argv[1]);
+	printf("talker: sent %d bytes to %s\n", numbytes, argv[1]); //client successfully sent message
 	close(sockfd);
 
 	return 0;
