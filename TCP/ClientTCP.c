@@ -5,26 +5,6 @@
 // Header file for ClientTCP.c"
 #include <ClientTCP.h>
 
-struct message_request_two_operands //TODO: move to a .h file
-{
-  unsigned int  total_message_length;
-  unsigned int request_id;
-  unsigned int op_code;
-  unsigned int num_operands = 2;
-  signed int op_1; 
-  signed int op_2;
-} __attribute__((__packed__));
-
-struct message_request_one_operand //TODO: move to a .h file
-{
-  unsigned int  total_message_length;
-  unsigned int request_id;
-  unsigned int op_code;
-  unsigned int num_operands = 1;
-  signed int op_1; 
-} __attribute__((__packed__));
-
-
 // get sockaddr, IPv4 or IPv6:
 void *get_in_addr(struct sockaddr *sa)
 {
@@ -48,7 +28,7 @@ int main(int argc, char *argv[])
 	    exit(1);
 	}
 	
-	string serverName = argv[1];
+	char* serverName = argv[1];
 	int portNumber = argv[2];
 
 	memset(&hints, 0, sizeof hints);
@@ -90,9 +70,13 @@ int main(int argc, char *argv[])
 	
 	//prompt user for input
 	printf ("Please enter the opcode: ");
+
+	short opCode;
+	short op1;
+	short op2;
   	scanf ("%d", opCode);
 	
-	while (opcode < 0 || opcode > 6 )
+	while (opCode < 0 || opCode > 6 )
 	{
 	   printf ("Please enter an opcode between 1 and 6: ");
  	   scanf("%d", opCode);	
@@ -105,7 +89,7 @@ int main(int argc, char *argv[])
 	
 	if (op2 == -1)
 	{
-	    typedef struct message_request_one_operand req;
+	    message_request req;
 	    req.total_message_length = 6;
             req.request_id = rand(); ///initialize request_id to random value
 	    req.op_code = opCode;
@@ -113,7 +97,7 @@ int main(int argc, char *argv[])
 	}
 	else 
 	{
-	    typedef struct message_request_two_operands req;
+	    message_request req;
 	    req.total_message_length = 8;   
             req.request_id = rand(); //initialize request_id to random value
 	    req.op_code = opCode;

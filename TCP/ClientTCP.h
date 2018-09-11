@@ -14,3 +14,12 @@
 
 #define MAXDATASIZE 100 // max number of bytes we can get at once 
 
+typedef struct message_request //TODO: move to a .h file
+{
+  unsigned int  total_message_length:8;
+  unsigned int request_id:8;
+  unsigned int op_code:8;
+  unsigned int num_operands:8;
+  signed int op_1:16; 
+  signed int op_2:16;
+} message_request;
