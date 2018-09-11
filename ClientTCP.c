@@ -18,6 +18,18 @@
 
 #define MAXDATASIZE 100 // max number of bytes we can get at once 
 
+struct message_request //TODO: move to a .h file
+{
+  unsigned int  total_message_length;
+  unsigned int request_id;
+  unsigned int op_code;
+  unsigned int num_operands;
+  signed float op_1; // subject to change
+  signed float op_2; //subject to change
+  
+} __attribute__((__packed__));
+
+
 // get sockaddr, IPv4 or IPv6:
 void *get_in_addr(struct sockaddr *sa)
 {
@@ -40,6 +52,10 @@ int main(int argc, char *argv[])
 	    fprintf(stderr,"usage: client hostname\n");
 	    exit(1);
 	}
+	
+	//TODO: use this data to alter how the client socket connects to the server
+	string serverName = argv[1];
+	int portNumber = argv[2];
 
 	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_UNSPEC; //set address family to AF_UNSPEC
@@ -77,7 +93,43 @@ int main(int argc, char *argv[])
 	printf("client: connecting to %s\n", s);
 
 	freeaddrinfo(servinfo); // all done with this structure
-
+	
+	//prompt user for input
+	//TODO: error checking
+	printf ("Please enter the opcode: ");
+  	scanf ("%s", opCode);
+	printf ("Please enter operand 1: ");
+  	scanf ("%s", op1);
+	printf ("Please enter operand 2, or enter a space for no operand 2: ");
+  	scanf ("%s", op2);
+	typedef struct message_request req; 
+	if (strcmp(op2, " ") == 0)
+	{
+	    req.total_message_length = 6;
+            //TODO: initialize request_id to random value and increment for each request
+            req.request_id = 0;
+	    req.op_code = opCode;
+	    req.num_operands = 1;
+	    req.op_1 = op1;
+	    req.op_2 = op2;	
+	}
+	else 
+	{
+	    req.total_message_length = 8;
+            //TODO: initialize request_id to random value and increment for each request
+            req.request_id = 0;
+	    req.op_code = opCode;
+	    req.num_operands = 1;
+	    req.op_1 = op1;
+	    req.op_2 = op2;			
+	}
+  	
+	
+	
+	//TODO: send request to server here
+	
+	
+	//try to receive response from server
 	if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
 	    perror("recv");
 	    exit(1);
