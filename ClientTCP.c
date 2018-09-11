@@ -18,15 +18,23 @@
 
 #define MAXDATASIZE 100 // max number of bytes we can get at once 
 
-struct message_request //TODO: move to a .h file
+struct message_request_two_operands //TODO: move to a .h file
 {
   unsigned int  total_message_length;
   unsigned int request_id;
   unsigned int op_code;
-  unsigned int num_operands;
-  signed float op_1; // subject to change
-  signed float op_2; //subject to change
-  
+  unsigned int num_operands = 2;
+  signed int op_1; 
+  signed int op_2;
+} __attribute__((__packed__));
+
+struct message_request_one_operand //TODO: move to a .h file
+{
+  unsigned int  total_message_length;
+  unsigned int request_id;
+  unsigned int op_code;
+  unsigned int num_operands = 1;
+  signed int op_1; 
 } __attribute__((__packed__));
 
 
@@ -53,7 +61,6 @@ int main(int argc, char *argv[])
 	    exit(1);
 	}
 	
-	//TODO: use this data to alter how the client socket connects to the server
 	string serverName = argv[1];
 	int portNumber = argv[2];
 
@@ -95,36 +102,39 @@ int main(int argc, char *argv[])
 	freeaddrinfo(servinfo); // all done with this structure
 	
 	//prompt user for input
-	//TODO: error checking
 	printf ("Please enter the opcode: ");
-  	scanf ("%s", opCode);
-	printf ("Please enter operand 1: ");
-  	scanf ("%s", op1);
-	printf ("Please enter operand 2, or enter a space for no operand 2: ");
-  	scanf ("%s", op2);
-	typedef struct message_request req; 
-	if (strcmp(op2, " ") == 0)
+  	scanf ("%d", opCode);
+	
+	while (opcode < 0 || opcode > 6 )
 	{
+	   printf ("Please enter an opcode between 1 and 6: ");
+ 	   scanf("%d", opCode);	
+	}
+		
+	printf ("Please enter operand 1: ");
+  	scanf ("%d", op1);	
+	printf ("Please enter operand 2, or enter -1 to indicate that there is no operand 2: ");
+  	scanf ("%d", op2);
+	
+	if (op2 == -1)
+	{
+	    typedef struct message_request_one_operand req;
 	    req.total_message_length = 6;
-            //TODO: initialize request_id to random value and increment for each request
-            req.request_id = 0;
+            req.request_id = rand(); ///initialize request_id to random value
 	    req.op_code = opCode;
-	    req.num_operands = 1;
 	    req.op_1 = op1;
-	    req.op_2 = op2;	
 	}
 	else 
 	{
-	    req.total_message_length = 8;
-            //TODO: initialize request_id to random value and increment for each request
-            req.request_id = 0;
+	    typedef struct message_request_two_operands req;
+	    req.total_message_length = 8;   
+            req.request_id = rand(); //initialize request_id to random value
 	    req.op_code = opCode;
-	    req.num_operands = 1;
 	    req.op_1 = op1;
-	    req.op_2 = op2;			
+	    req.op_2 = op2;	
 	}
   	
-	
+	//TODO: print out struct content
 	
 	//TODO: send request to server here
 	
