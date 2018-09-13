@@ -68,12 +68,12 @@ int main(int argc, char *argv[])
 
 	freeaddrinfo(servinfo); // all done with this structure
 	
+
+	u_int8_t opCode;
+	int16_t op1;
+	int16_t op2;
 	//prompt user for input
 	printf ("Please enter the opcode: ");
-
-	short opCode;
-	short op1;
-	short op2;
   	scanf ("%d", opCode);
 	
 	while (opCode < 0 || opCode > 6 )

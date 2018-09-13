@@ -16,10 +16,10 @@
 
 typedef struct message_request //TODO: move to a .h file
 {
-  unsigned int  total_message_length:8;
-  unsigned int request_id:8;
-  unsigned int op_code:8;
-  unsigned int num_operands:8;
-  signed int op_1:16; 
-  signed int op_2:16;
+  u_int8_t total_message_length:8;
+  u_int8_t request_id:8;
+  u_int8_t op_code:8;
+  u_int8_t num_operands:8;
+  int16_t op_1:16; 
+  int16_t op_2:16;
 } message_request;
