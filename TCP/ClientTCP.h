@@ -10,16 +10,16 @@
 
 #include <arpa/inet.h>
 
-#define PORT "10022" // the port client will be connecting to 
+#define PORT "10022" // the port client will be connecting to
 
-#define MAXDATASIZE 100 // max number of bytes we can get at once 
+#define MAXDATASIZE 100 // max number of bytes we can get at once
 
-typedef struct message_request //TODO: move to a .h file
+struct message_request
 {
-  unsigned int  total_message_length:8;
-  unsigned int request_id:8;
-  unsigned int op_code:8;
-  unsigned int num_operands:8;
-  signed int op_1:16; 
-  signed int op_2:16;
-} message_request;
+  size_t total_message_length;
+  unsigned int request_id;
+  unsigned int op_code;
+  unsigned int num_operands;
+  signed int op_1;
+  signed int op_2;
+} __attribute__((__packed__));
