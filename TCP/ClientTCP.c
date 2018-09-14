@@ -36,6 +36,7 @@ int main(int argc, char *argv[])
 {
 	int sockfd, numbytes;
 	char buf[MAXDATASIZE];
+	char message[MAXDATASIZE];
 	struct addrinfo hints, *servinfo, *p;
 	int rv;
 	char s[INET6_ADDRSTRLEN];
@@ -44,10 +45,13 @@ int main(int argc, char *argv[])
 	int op2;
 	int send_message;
 
-	if (argc != 2) { //error entering in command line prompt: client servername
-	    fprintf(stderr,"usage: client hostname\n");
+	if (argc != 3) { //error entering in command line prompt: client servername
+	    fprintf(stderr,"usage: ./ClientTCP client hostname\n");
 	    exit(1);
 	}
+
+	srand(time(NULL));
+	int random_num = rand();
 
 	printf ("To send a message, press 1. To exit, press 2.");
 	scanf("%d", &send_message);
@@ -112,16 +116,37 @@ int main(int argc, char *argv[])
 		if (op2 == -1)
 		{
 			req.total_message_length = 6;
+			req.num_operands = 1;
 		}
 		else
 		{
 			req.total_message_length = 8;
+			req.num_operands = 2;
 		}
 
-	  req.request_id = rand(); //initialize request_id to random value
+		message[0] = req.total_message_length;
+	  req.request_id = random_num;
+		random_num++;
+		message[1] = req.request_id;
 		req.op_code = opCode;
+		message[2] = req.op_code;
+		message[3] = req.num_operands;
 		req.op_1 = op1;
 		req.op_2 = op2;
+		message[4] = req.op_1;
+		if (op2 != -1)
+		{
+			message[5] = req.op_2;
+			message[6] = '\0';
+			char *message_ptr = message;
+			displayBuffer(message_ptr, 6);
+		}
+		else
+		{
+			message[5] = '\0';
+			char *message_ptr = message;
+			displayBuffer(message_ptr, 5);
+		}
 
 		const struct message_request *req_ptr = &req;
 
@@ -133,9 +158,6 @@ int main(int argc, char *argv[])
 		}
 
 		printf("client: Message sent ");
-
-		char *char_req_ptr = &req; //TODO: check this
-		displayBuffer(char_req_ptr, req.total_message_length);
 
 		/* Listen for response from server */
 		if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
