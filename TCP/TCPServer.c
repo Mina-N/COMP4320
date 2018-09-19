@@ -2,22 +2,7 @@
 ** server.c -- a stream socket server demo
 */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <errno.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netdb.h>
-#include <arpa/inet.h>
-#include <sys/wait.h>
-#include <signal.h>
-
-#define PORT "10010"  // the port users will be connecting to
-
-#define BACKLOG 10	 // how many pending connections queue will hold
+#include "TCP.h"
 
 
 void sigchld_handler(int s)
@@ -41,9 +26,30 @@ void *get_in_addr(struct sockaddr *sa)
 	return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-int main(void)
+/* Display the contents of the buffer */
+void displayBuffer(char *Buffer, int length)
 {
-	int sockfd, new_fd;  // listen on sock_fd, new connection on new_fd
+	int currentByte, column;
+	currentByte = 0;
+	printf("\n>>>>>>>>>>>> Content in hexadecimal <<<<<<<<<<<\n");
+	while (currentByte < length)
+	{
+		printf("%3d: ", currentByte);
+		column =0;
+		while ((currentByte < length) && (column < 10))
+		{
+			printf("%2x ",Buffer[currentByte]);
+			column++;
+			currentByte++;
+		}
+		printf("\n");
+	}
+	printf("\n\n");
+}
+
+int main(int argc, char *argv[])
+{
+	int sockfd, new_fd, num_bytes, read_value;  // listen on sock_fd, new connection on new_fd
 	struct addrinfo hints, *servinfo, *p;
 	struct sockaddr_storage their_addr; // connector's address information
 	socklen_t sin_size;
@@ -51,13 +57,24 @@ int main(void)
 	int yes=1;
 	char s[INET6_ADDRSTRLEN];
 	int rv;
+	struct message_request buf;
+	struct message_response res;
+	char message[MAXDATASIZE];
+	char *portNumber;
 
 	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_PASSIVE; // use my IP
 
-	if ((rv = getaddrinfo(NULL, PORT, &hints, &servinfo)) != 0) {
+	if (argc != 2) { //error entering in command line prompt: client servername
+	    fprintf(stderr,"usage: server portNumber\n");
+	    exit(1);
+	}
+
+	portNumber = argv[1];
+
+	if ((rv = getaddrinfo(NULL, portNumber, &hints, &servinfo)) != 0) {
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
 		return 1;
 	}
@@ -115,21 +132,86 @@ int main(void)
 			continue;
 		}
 
+
 		inet_ntop(their_addr.ss_family,
 			get_in_addr((struct sockaddr *)&their_addr),
 			s, sizeof s);
 		printf("server: got connection from %s\n", s);
 
+		/* Listen for response from client */
+		read_value = recv(new_fd, &buf, MAXDATASIZE-1, 0);
+		if (read_value < 0)
+		{
+			perror("read from socket");
+		}
+
+		res.total_message_length = RESPONSE_BYTES;
+		res.request_id = buf.request_id;
+		res.error_code = 0;
+		message[0] = buf.total_message_length;
+		message[1] = buf.request_id;
+		message[2] = buf.op_code;
+		message[3] = buf.num_operands;
+		message[4] = ntohs(buf.op_1);
+		message[5] = ntohs(buf.op_2);
+		message[6] = '\0';
+		char *message_ptr = message;
+		displayBuffer(message_ptr, 7);
+
+		//TODO: Is there enough error handling below?
+
+		if (buf.op_code == 0)
+		{
+			float result = ntohs(buf.op_1) + ntohs(buf.op_2);
+			res.result = htonl(result);
+		}
+		else if (buf.op_code == 1)
+		{
+			float result = ntohs(buf.op_1) - ntohs(buf.op_2);
+			res.result = htonl(result);
+		}
+		else if (buf.op_code == 2)
+		{
+			float result = ntohs(buf.op_1) | ntohs(buf.op_2);
+			res.result = htonl(result);
+		}
+		else if (buf.op_code == 3)
+		{
+			float result = ntohs(buf.op_1) & ntohs(buf.op_2);
+			res.result = htonl(result);
+		}
+		else if (buf.op_code == 4)
+		{
+			float result = ntohs(buf.op_1) >> ntohs(buf.op_2);
+			res.result = htonl(result);
+		}
+		else if (buf.op_code == 5)
+		{
+			float result = ntohs(buf.op_1) << ntohs(buf.op_2);
+			res.result = htonl(result);
+		}
+		else if (buf.op_code == 6)
+		{
+			float result = ~ntohs(buf.op_1);
+			res.result = htonl(result);
+		}
+		else
+		{
+			res.error_code = 127;
+		}
+
+		//TODO: Check size of message
+		/*Send message to the client */
 		if (!fork()) { // this is the child process
 			close(sockfd); // child doesn't need the listener
-			if (send(new_fd, "Hello, world!", 13, 0) == -1)
+			if (send(new_fd, &res, sizeof(res), 0) == -1)
 				perror("send");
 			close(new_fd);
 			exit(0);
 		}
+		printf("server: Response sent\n");
 		close(new_fd);  // parent doesn't need this
 	}
 
 	return 0;
 }
-
