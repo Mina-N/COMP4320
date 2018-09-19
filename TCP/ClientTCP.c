@@ -95,25 +95,28 @@ int main(int argc, char *argv[])
 
 		freeaddrinfo(servinfo); // all done with this structure
 
-		/* Prompt user for input */
-		printf ("Please enter the opcode: ");
-
-	  scanf ("%d", &opCode);
-
-		while (opCode < 0 || opCode > 6 )
-		{
-		   printf ("Please enter an opcode between 1 and 6: ");
-	 	   scanf("%d", &opCode);
-		}
 
 		printf ("Please enter operand 1: ");
 	  	scanf ("%d", &op1);
-		printf ("Please enter operand 2, or enter -1 to indicate that there is no operand 2: ");
-	  	scanf ("%d", &op2);
+
+		/* Prompt user for input */
+		printf ("Please enter the opcode: ");
+	  	scanf ("%d", &opCode);
+
+		while (opCode < 0 || opCode > 6 )
+		{
+		   perror("Please enter an opcode between 1 and 6: ");
+	 	   scanf("%d", &opCode);
+		}
+
+		if(opCode != 6) {
+			printf ("Please enter operand 2: ");
+	  		scanf ("%d", &op2);
+		}
 
 		/* Form the message */
 		struct message_request req;
-		if (op2 == -1)
+		if (opCode == 6)
 		{
 			req.total_message_length = 6;
 			req.num_operands = 1;
@@ -125,7 +128,7 @@ int main(int argc, char *argv[])
 		}
 
 		message[0] = req.total_message_length;
-	  req.request_id = random_num;
+	  	req.request_id = random_num;
 		random_num++;
 		message[1] = req.request_id;
 		req.op_code = opCode;
@@ -134,7 +137,7 @@ int main(int argc, char *argv[])
 		req.op_1 = op1;
 		req.op_2 = op2;
 		message[4] = req.op_1;
-		if (op2 != -1)
+		if (opCode != 6)
 		{
 			message[5] = req.op_2;
 			message[6] = '\0';
