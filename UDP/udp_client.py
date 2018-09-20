@@ -10,14 +10,14 @@ port = 10022
 max_data_size = 100
 request_id = 1
 
-serverName = sys.argv[1]
-portNumber = int(sys.argv[2])
-
-
 # check to see if you have valid command line inputs
 if (len(sys.argv) != 3):
      sys.stderr.write("usage: talker hostname message\n")
      exit(1)
+
+#set the values of the two argument into variables
+serverName = sys.argv[1]
+portNumber = int(sys.argv[2])
 
 #Ask user to send a message or exit
 send_message = input("To send a message, press 1. To exit, press 2.")
@@ -37,7 +37,7 @@ while(send_message != 2):
             ipType = 0
 
     if(ipType == 0):
-        sys.stderr.write('Not a valid ip')
+        sys.stderr.write('Not a valid ip\n')
         exit(1)
 
     if(ipType == 4):
@@ -89,7 +89,12 @@ while(send_message != 2):
     #Pack the message into a Struct in Big Endian
     message = pack('!bbbbhh', total_message_length, request_id , op_code, num_operands, op_1, op_2)
 
+    #Send a message and measure time it takes to send a message
+    send_start = time.time()
     send = s.sendto(message, (serverName, portNumber))
+    send_time = time.time()- send_start
+    print ("Time to send: {}".format(send_time))
+
     #Check to see if you can send
     if(send <= 0):
         sys.stderr.write("Send\n")
@@ -97,11 +102,22 @@ while(send_message != 2):
 
     print("Connecting to Server: {}".format(serverName))
     print ("Message being sent is: {}".format(message))
-    numBytes = s.recv(max_data_size)
-    print ("Message being received is:")
-    print (numBytes)
+
+    #Make sure valid msg, recv the message and measure time it takes to recv a message
+    recv_start = time.time()
+    try:
+        numBytes = s.recv(max_data_size)
+    except socket.error:
+        sys.stderr.write("Error: Recieved\n")
+        sys.exit()
+
+    recv_time = time.time()- recv_start
+    print ("Time to recv: {}".format(recv_time))
+
+    print ("Message being received is: {}".format(numBytes))
+
     #not sure about this
-    if (numBytes[0] == ''):
+    if (numBytes == ''):
         sys.stderr.write("recv\n")
 
     request_id += 1
