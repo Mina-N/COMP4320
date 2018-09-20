@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
 	short op1;
 	short op2;
 	int32_t result;
-	char responseArr[7];
+	unsigned char responseArr[7];
 	enum opCodes operations;
 	char *portNumber;
 
@@ -112,7 +112,7 @@ int main(int argc, char *argv[])
 		int i = 0;
 
 		while(i < 8) {
-			printf("%x ", buffer[i]);
+			printf("%#04x\\", buffer[i]);
 			i += 1;
 		}
 
@@ -155,7 +155,7 @@ int main(int argc, char *argv[])
 		printf("Message being sent (in hex): ");
 		int j = 0;
 		while(j < 7) {
-			printf("%x ", responseArr[j]);
+			printf("%#04x\\", responseArr[j]);
 			j++;
 		}
 		printf("\n");
