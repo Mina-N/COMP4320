@@ -29,8 +29,8 @@ struct message_request
   uint8_t request_id;
   uint8_t op_code;
   uint8_t num_operands;
-  signed int op_1;
-  signed int op_2;
+  short op_1;
+  short op_2;
 } __attribute__((__packed__));
 
 struct message_response
@@ -38,5 +38,5 @@ struct message_response
   uint8_t total_message_length;
   uint8_t request_id;
   uint8_t error_code;
-  float result;
+  long result;
 } __attribute__((__packed__));
