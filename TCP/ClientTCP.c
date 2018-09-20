@@ -106,8 +106,6 @@ int main(int argc, char *argv[])
 		printf ("Please enter operand 1: ");
 	  scanf ("%d", &op1);
 		req.op_1 = htons(op1);
-		req.op_2 = 0; //TODO: Is this ok?
-		req.num_operands = 1;
 
 		if (opCode != 6)
 		{
@@ -116,13 +114,18 @@ int main(int argc, char *argv[])
 			req.op_2 = htons(op2);
 			req.num_operands = 2;
 		}
+		else
+		{
+			req.op_2 = 0; //TODO: Is this ok?
+			req.num_operands = 1;
+		}
 
 		/* Finish forming the message, or the req struct */
 		req.total_message_length = REQUEST_BYTES;
 		req.request_id = random_num;
 		random_num++;
 		message_buf = (char *)&req;
-		displayBuffer(message_buf, 8);
+		displayBuffer(message_buf, REQUEST_BYTES);
 
 		/*END USER INPUT AND MESSAGE CONSTRUCTION*/
 
