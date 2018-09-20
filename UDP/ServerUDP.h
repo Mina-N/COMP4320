@@ -11,7 +11,7 @@
 
 #define MYPORT "10022"	// the port users will be connecting to
 
-#define MAXBUFLEN 100
+#define MAXDATASIZE 100
 
 #define REQUEST_BYTES 8
 
@@ -29,18 +29,18 @@ struct message_send
 
 struct message_receive
 {
-  size_t total_message_length;
-  unsigned int request_id;
-  unsigned int op_code;
-  unsigned int num_operands;
-  signed int op_1;
-  signed int op_2;
+  u_int8_t total_message_length;
+  u_int8_t request_id;
+  u_int8_t op_code;
+  u_int8_t num_operands;
+  short op_1;
+  short op_2;
 } __attribute__((__packed__));
 
 enum opCodes{addOp, subOp, orOp, andOp, shRightOp, shLeftOp, notOp};
 
 // calculates the result to be sent back depending on the opCode
-float getResult(short op1, char opCode, short op2);
+int32_t getResult(short op1, char opCode, short op2);
 
 // sets the op2 value if it's not a NOT operation and sets error_code
 // to see it meets total message length requirements and op code requirements
