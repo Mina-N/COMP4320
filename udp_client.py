@@ -126,4 +126,5 @@ while(send_message != 2):
         sys.stderr.write("nothing received\n")
 
     request_id += 1
+
 s.close()
