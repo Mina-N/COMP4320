@@ -13,7 +13,6 @@
 
 #include <arpa/inet.h>
 
-//#define PORT "10022" // the port client will be connecting to
 
 #define BACKLOG 10	 // how many pending connections queue will hold
 

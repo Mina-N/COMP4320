@@ -116,7 +116,7 @@ int main(int argc, char *argv[])
 		}
 		else
 		{
-			req.op_2 = 0; //TODO: Is this ok?
+			req.op_2 = 0;
 			req.num_operands = 1;
 		}
 
@@ -125,12 +125,11 @@ int main(int argc, char *argv[])
 		req.request_id = random_num;
 		random_num++;
 		message_buf = (char *)&req;
+		printf("Client request: \n");
 		displayBuffer(message_buf, REQUEST_BYTES);
 
 		/*END USER INPUT AND MESSAGE CONSTRUCTION*/
 
-
-		//TODO: Check message size
 		/*Send message to the server */
 		if (send(sockfd, &req, sizeof(req), 0) < 0)
 		{
@@ -138,7 +137,7 @@ int main(int argc, char *argv[])
 		    exit(1);
 		}
 		gettimeofday(&st,NULL);
-		printf("client: Message sent ");
+		printf("client: Message sent \n");
 
 		/* Listen for response from server */
 		if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
@@ -147,6 +146,7 @@ int main(int argc, char *argv[])
 		}
 		struct message_response resp;
 		memcpy(&resp, buf, sizeof(struct message_response));
+		printf("Server response: \n");
 		displayBuffer(buf, 7);
 		gettimeofday(&et,NULL);
 		int elapsed = ((et.tv_sec - st.tv_sec) * 1000000) + (et.tv_usec - st.tv_usec);
