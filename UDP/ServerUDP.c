@@ -34,6 +34,7 @@ int main(int argc, char *argv[])
 	short op1;
 	short op2;
 	int32_t result;
+	char responseArr[7];
 	enum opCodes operations;
 	char *portNumber;
 
@@ -98,17 +99,21 @@ int main(int argc, char *argv[])
 			exit(1);
 		}
 
-		printf("listener: got packet from %s\n",
+		printf("listener: got message from %s\n",
 			inet_ntop(their_addr.ss_family,
 				get_in_addr((struct sockaddr *)&their_addr),
 				s, sizeof s));
 
-		printf("listener: packet is %d bytes long\n", numbytes);
+		printf("listener: message is %d bytes long\n", numbytes);
 		buffer[numbytes] = '\0';
 
-		printf("listener: packet contains:\n");
-		for(int i = 0; i < 8; i++) {
+		printf("listener: received message (in hex) contains: ");
+
+		int i = 0;
+
+		while(i < 8) {
 			printf("%x ", buffer[i]);
+			i += 1;
 		}
 
 		printf("\n");
@@ -135,12 +140,27 @@ int main(int argc, char *argv[])
 			result = 0;
 		}
 
+		printf("Result: %d\n", result);
+
 		message.total_message_length = RESPONSE_BYTES;
 		message.result = htonl(result);
 		message.request_ID = buf.request_id;
 		message.error_code = error_code;
-		
-		if (sendto(sockfd, (char*)&message, sizeof(message), error_code,
+
+		memcpy(responseArr, &message.total_message_length, 1);
+		memcpy(responseArr + 1, &message.request_ID, 1);
+		memcpy(responseArr + 2, &message.error_code, 1);
+		memcpy(responseArr + 3, &message.result, 4);
+
+		printf("Message being sent (in hex): ");
+		int j = 0;
+		while(j < 7) {
+			printf("%x ", responseArr[j]);
+			j++;
+		}
+		printf("\n");
+	
+		if (sendto(sockfd, responseArr, sizeof(responseArr), 0,
 				   (const struct sockaddr *)&their_addr, addr_len) == -1)
 		{
 			perror("sendto");
@@ -187,19 +207,14 @@ char checkErrors(struct message_receive buf, char opCode)
 {
 	// check op code
 	int isError = 0;
-	int message_length = opCode == 6 ? 6 : 8;
 	if (opCode < 0 || opCode > 6)
 	{
 		isError = 1;
 	}
 
-	if (message_length != buf.total_message_length)
+	if (REQUEST_BYTES != buf.total_message_length)
 	{
 		isError = 1;
-	}
-
-	if(isError) {
-		printf("An error has occurred!");
 	}
 
 	return isError == 1 ? 127 : 0;
