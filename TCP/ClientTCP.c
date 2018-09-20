@@ -71,10 +71,10 @@ int main(int argc, char *argv[])
 
 		/*START USER INPUT AND MESSAGE CONSTRUCTION*/
 		printf ("Please enter the opcode: ");
-	  scanf ("%d", &opCode);
+	  	scanf ("%d", &opCode);
 		req.op_code = opCode;
 		printf ("Please enter operand 1: ");
-	  scanf ("%d", &op1);
+	  	scanf ("%d", &op1);
 		req.op_1 = htons(op1);
 		req.op_2 = 0; //TODO: Is this ok?
 		req.num_operands = 2;
