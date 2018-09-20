@@ -116,7 +116,8 @@ while(send_message != 2):
     rount_trip_time = recv_time - send_time
     print ("Time to recv in nano seconds: {}".format(recv_time))
 
-    print ("Message being received is: {}".format(numBytes))
+    msg = unpack('!bbbl', numBytes)
+    print ("Message being received is: {}".format(msg))
 
     round_trip_time = send_time - recv_time
     print ("Total Round Trip Time in nano seconds is: {}".format(abs(round_trip_time)))
