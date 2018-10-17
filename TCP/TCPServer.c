@@ -132,7 +132,6 @@ int main(int argc, char *argv[])
 			continue;
 		}
 
-
 		inet_ntop(their_addr.ss_family,
 			get_in_addr((struct sockaddr *)&their_addr),
 			s, sizeof s);
