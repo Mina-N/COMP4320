@@ -3,7 +3,7 @@
 */
 
 #include "TCP.h"
-
+#define REQUEST_BYTES 8
 
 void sigchld_handler(int s)
 {
@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
 	int yes=1;
 	char s[INET6_ADDRSTRLEN];
 	int rv;
-	struct message_request buf;
+	//struct message_request buf;
 	struct message_response res;
 	char message[MAXDATASIZE];
 	char *portNumber;
@@ -68,14 +68,19 @@ int main(int argc, char *argv[])
 	hints.ai_flags = AI_PASSIVE; // use my IP
 
 	struct master_properties {
-   int ring_id = 0;
-   int nextRID = 0;
+   int ring_id;
+   int nextRID;
 	 char *nextSlaveIP;
    /* Declare master variables */
-};
+	};
 
-struct master_properties master;
-master.nextSlaveIP = argv[1];
+ struct message_request
+ {
+  uint8_t gid;
+  long magic_number;
+ } __attribute__((__packed__));
+
+ struct message_request buf;
 
 	if (argc != 2) { //error entering in command line prompt: client servername
 	    fprintf(stderr,"usage: server portNumber\n");
@@ -83,8 +88,7 @@ master.nextSlaveIP = argv[1];
 	}
 
 	struct master_properties master;
-
-	master.nextSlaveIP = argv[1];
+  master.nextSlaveIP = argv[1];
 	portNumber = argv[1];
 
 	if ((rv = getaddrinfo(NULL, portNumber, &hints, &servinfo)) != 0) {
@@ -157,60 +161,11 @@ master.nextSlaveIP = argv[1];
 			perror("read from socket");
 		}
 
-		res.total_message_length = RESPONSE_BYTES;
-		res.request_id = buf.request_id;
-		res.error_code = 0;
-		message[0] = buf.total_message_length;
-		message[1] = buf.request_id;
-		message[2] = buf.op_code;
-		message[3] = buf.num_operands;
-		message[4] = ntohs(buf.op_1);
-		message[5] = ntohs(buf.op_2);
-		message[6] = '\0';
+		message[0] = buf.gid;
+		message[1] = buf.magic_number;
+
 		char *message_ptr = message;
-		displayBuffer(message_ptr, 7);
-
-		//TODO: Is there enough error handling below?
-
-		if (buf.op_code == 0)
-		{
-			float result = ntohs(buf.op_1) + ntohs(buf.op_2);
-			res.result = htonl(result);
-		}
-		else if (buf.op_code == 1)
-		{
-			float result = ntohs(buf.op_1) - ntohs(buf.op_2);
-			res.result = htonl(result);
-		}
-		else if (buf.op_code == 2)
-		{
-			float result = ntohs(buf.op_1) | ntohs(buf.op_2);
-			res.result = htonl(result);
-		}
-		else if (buf.op_code == 3)
-		{
-			float result = ntohs(buf.op_1) & ntohs(buf.op_2);
-			res.result = htonl(result);
-		}
-		else if (buf.op_code == 4)
-		{
-			float result = ntohs(buf.op_1) >> ntohs(buf.op_2);
-			res.result = htonl(result);
-		}
-		else if (buf.op_code == 5)
-		{
-			float result = ntohs(buf.op_1) << ntohs(buf.op_2);
-			res.result = htonl(result);
-		}
-		else if (buf.op_code == 6)
-		{
-			float result = ~ntohs(buf.op_1);
-			res.result = htonl(result);
-		}
-		else
-		{
-			res.error_code = 127;
-		}
+		displayBuffer(message_ptr, 2);
 
 		//TODO: Check size of message
 		/*Send message to the client */
