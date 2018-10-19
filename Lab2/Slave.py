@@ -29,7 +29,7 @@ try:
     message = sock.recv(longest_message_size)
     if not message:
         print("No message received. Closing socket.")
-        break
+        sock.close()
     message_unpacked = struct.unpack('>blbl', message)
     #TODO: CHECK BL
     gid_master = message[0]
