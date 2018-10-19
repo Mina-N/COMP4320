@@ -3,7 +3,6 @@
 */
 
 #include "TCP.h"
-#define REQUEST_BYTES 8
 
 void sigchld_handler(int s)
 {
@@ -57,9 +56,12 @@ int main(int argc, char *argv[])
 	int yes=1;
 	char s[INET6_ADDRSTRLEN];
 	int rv;
-	//struct message_request buf;
+	struct message_request buf;
 	struct message_response res;
+	struct master_properties master;
+	unsigned char msg_sent[10];
 	char message[MAXDATASIZE];
+	char nextSlaveIP[15];
 	char *portNumber;
 
 	memset(&hints, 0, sizeof hints);
@@ -67,28 +69,15 @@ int main(int argc, char *argv[])
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_PASSIVE; // use my IP
 
-	struct master_properties {
-   int ring_id;
-   int nextRID;
-	 char *nextSlaveIP;
-   /* Declare master variables */
-	};
 
- struct message_request
- {
-  uint8_t gid;
-  long magic_number;
- } __attribute__((__packed__));
-
- struct message_request buf;
 
 	if (argc != 2) { //error entering in command line prompt: client servername
 	    fprintf(stderr,"usage: server portNumber\n");
 	    exit(1);
 	}
 
-	struct master_properties master;
-  master.nextSlaveIP = argv[1];
+
+
 	portNumber = argv[1];
 
 	if ((rv = getaddrinfo(NULL, portNumber, &hints, &servinfo)) != 0) {
@@ -144,6 +133,7 @@ int main(int argc, char *argv[])
 	while(1) {  // main accept() loop
 		sin_size = sizeof their_addr;
 		new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
+
 		if (new_fd == -1) {
 			perror("accept");
 			continue;
@@ -161,8 +151,25 @@ int main(int argc, char *argv[])
 			perror("read from socket");
 		}
 
-		message[0] = buf.gid;
-		message[1] = buf.magic_number;
+
+
+		master.gid = 0;
+		master.magic_number = 0x4A6F7921;
+		master.ring_id = 12;
+		master.nextSlaveIP = 0x4A6F7921;
+
+		memcpy(msg_sent, &master.gid, 1);
+		memcpy(msg_sent + 1, &master.magic_number, 4);
+		memcpy(msg_sent + 2, &master.ring_id, 1);
+		memcpy(msg_sent + 3, &master.nextSlaveIP, 4);
+
+		printf("Message being sent(hex): ");
+		int j = 0;
+		while(j < 4) {
+			printf("%#04x\\", msg_sent[j]);
+			j++;
+		}
+		printf("\n");
 
 		char *message_ptr = message;
 		displayBuffer(message_ptr, 2);
@@ -171,7 +178,7 @@ int main(int argc, char *argv[])
 		/*Send message to the client */
 		if (!fork()) { // this is the child process
 			close(sockfd); // child doesn't need the listener
-			if (send(new_fd, &res, sizeof(res), 0) == -1)
+			if (send(new_fd, &msg_sent, sizeof(msg_sent), 0) == -1)
 				perror("send");
 			close(new_fd);
 			exit(0);

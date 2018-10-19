@@ -23,7 +23,8 @@
 
 #define RESPONSE_BYTES 7
 
-struct message_request
+
+/*struct message_request
 {
   uint8_t total_message_length;
   uint8_t request_id;
@@ -31,6 +32,12 @@ struct message_request
   uint8_t num_operands;
   short op_1;
   short op_2;
+*/
+
+struct message_request
+{
+ uint8_t gid1;
+ long magic_number1;
 } __attribute__((__packed__));
 
 struct message_response
@@ -40,3 +47,12 @@ struct message_response
   uint8_t error_code;
   long result;
 } __attribute__((__packed__));
+
+struct master_properties {
+ uint8_t nextRID;
+ uint8_t gid;
+ long magic_number;
+ uint8_t ring_id;
+ long nextSlaveIP;
+ /* Declare master variables */
+}__attribute__((__packed__));
