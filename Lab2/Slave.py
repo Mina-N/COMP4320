@@ -5,6 +5,7 @@ import sys
 magicNumber = 0x4A6F7921
 
 if (len(sys.argv) != 3):
+    print("usage: slave masterhostname portnumber")
     sys.exit(1)
 
 master_hostname = sys.argv[1]

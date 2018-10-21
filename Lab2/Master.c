@@ -3,6 +3,8 @@
 */
 
 #include "TCP.h"
+const uint8_t MASTER_GID = 12;
+const long MAGIC_NUMBER = 0x4A6F7921;
 
 void sigchld_handler(int s)
 {
@@ -46,6 +48,17 @@ void displayBuffer(char *Buffer, int length)
 	printf("\n\n");
 }
 
+// adds a slave node to the linked list ring. Master points to this new slave added.
+void addSlaveNode(struct Node* master, struct Node* slave) {
+	// so this is going to add a node directly after the master node. 
+	slave->RID = master->nextRID;
+	slave->nextSlaveIP = master->next->IP;
+	slave->next = master->next;
+	master->nextSlaveIP = slave->IP;
+	master->next = slave;
+	master->nextRID += 1;
+}
+
 int main(int argc, char *argv[])
 {
 	int sockfd, new_fd, num_bytes, read_value;  // listen on sock_fd, new connection on new_fd
@@ -57,12 +70,21 @@ int main(int argc, char *argv[])
 	char s[INET6_ADDRSTRLEN];
 	int rv;
 	struct message_request buf;
-	struct message_response res;
-	struct master_properties master;
+	struct message_response response;
+
 	unsigned char msg_sent[10];
 	char message[MAXDATASIZE];
 	char nextSlaveIP[15];
 	char *portNumber;
+
+	// initializing the master node of the linked list.
+	struct Node* master = malloc(sizeof(struct Node));
+	master->GID = MASTER_GID;
+	master->IP = Master_IP;
+	master->RID = 0;
+	master->nextRID = 1;
+	master->next = master;
+	master->nextSlaveIP = master->next->IP;
 
 	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_UNSPEC;
@@ -75,8 +97,6 @@ int main(int argc, char *argv[])
 	    fprintf(stderr,"usage: server portNumber\n");
 	    exit(1);
 	}
-
-
 
 	portNumber = argv[1];
 
@@ -146,22 +166,38 @@ int main(int argc, char *argv[])
 
 		/* Listen for response from client */
 		read_value = recv(new_fd, &buf, MAXDATASIZE-1, 0);
+		
 		if (read_value < 0)
 		{
 			perror("read from socket");
 		}
 
+		printf("Buf size: %lu \n", sizeof(buf));
 
+		// message validation
+		if(sizeof(buf) != 5) {
+			perror("Size of message received is not 5 bytes");
+		}
+		if(buf.magic_number != MAGIC_NUMBER) {
+			perror("Magic number is not included");
+		}
 
-		master.gid = 0;
-		master.magic_number = 0x4A6F7921;
-		master.ring_id = 12;
-		master.nextSlaveIP = 0x4A6F7921;
+		struct Node* slave = malloc(sizeof(struct Node));
+		slave->GID = buf.gid;
+		slave->IP = buf.gid;
+		slave->nextRID = 0;
 
-		memcpy(msg_sent, &master.gid, 1);
-		memcpy(msg_sent + 1, &master.magic_number, 4);
-		memcpy(msg_sent + 2, &master.ring_id, 1);
-		memcpy(msg_sent + 3, &master.nextSlaveIP, 4);
+		addSlaveNode(master, slave);
+		
+		response.gid = MASTER_GID;
+		response.magic_number = MAGIC_NUMBER;
+		response.ring_id = master->next->RID;
+		response.nextSlaveIP = master->next->nextSlaveIP;
+
+		memcpy(msg_sent, &response.gid, 1);
+		memcpy(msg_sent + 1, &response.magic_number, 4);
+		memcpy(msg_sent + 2, &response.ring_id, 1);
+		memcpy(msg_sent + 3, &response.nextSlaveIP, 4);
 
 		printf("Message being sent(hex): ");
 		int j = 0;
