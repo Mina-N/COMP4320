@@ -22,9 +22,9 @@
 #define REQUEST_BYTES 8
 
 #define RESPONSE_BYTES 7
+#define MASTER_PORT 10070
 
-
-#define Master_IP 0x7f000001
+#define MASTER_IP 0x7f000001
 
 
 /*struct message_request

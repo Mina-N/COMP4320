@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
 	// initializing the master node of the linked list.
 	struct Node* master = malloc(sizeof(struct Node));
 	master->GID = MASTER_GID;
-	master->IP = Master_IP;
+	master->IP = MASTER_IP;
 	master->RID = 0;
 	master->nextRID = 1;
 	master->next = master;
@@ -172,7 +172,10 @@ int main(int argc, char *argv[])
 			perror("read from socket");
 		}
 
+		buf.magic_number = ntohl(buf.magic_number);
 		printf("Buf size: %lu \n", sizeof(buf));
+		printf("Magic Number: %#04x\n", buf.magic_number);
+		printf("GID: %d\n", buf.gid);
 
 		// message validation
 		if(sizeof(buf) != 5) {
@@ -183,8 +186,10 @@ int main(int argc, char *argv[])
 		}
 
 		struct Node* slave = malloc(sizeof(struct Node));
+		struct sockaddr_in *get_ip = (struct sockaddr_in *)&their_addr;
+		// memcpy(&master->nextSlaveIP, inet_ntoa(get_ip->sin_addr), 4);
 		slave->GID = buf.gid;
-		slave->IP = buf.gid;
+		slave->IP = get_ip->sin_addr.s_addr;
 		slave->nextRID = 0;
 
 		addSlaveNode(master, slave);
@@ -192,7 +197,14 @@ int main(int argc, char *argv[])
 		response.gid = MASTER_GID;
 		response.magic_number = MAGIC_NUMBER;
 		response.ring_id = master->next->RID;
-		response.nextSlaveIP = master->next->nextSlaveIP;
+		response.nextSlaveIP = slave->nextSlaveIP;
+
+		printf("GID: %d\n", response.gid);
+		printf("Magic Number: %#04lx\n", response.magic_number);
+		printf("RID: %d\n", response.ring_id);
+		printf("IP: %s\n", inet_ntoa(get_ip->sin_addr));
+
+		
 
 		memcpy(msg_sent, &response.gid, 1);
 		memcpy(msg_sent + 1, &response.magic_number, 4);
@@ -201,7 +213,7 @@ int main(int argc, char *argv[])
 
 		printf("Message being sent(hex): ");
 		int j = 0;
-		while(j < 4) {
+		while(j < 10) {
 			printf("%#04x\\", msg_sent[j]);
 			j++;
 		}
@@ -219,9 +231,9 @@ int main(int argc, char *argv[])
 			close(new_fd);
 			exit(0);
 		}
-		printf("server: Response sent\n");
-		close(new_fd);  // parent doesn't need this
+		printf("server: Response sent\n");		
 	}
+	close(new_fd);  // parent doesn't need this
 
 	return 0;
 }
