@@ -1,4 +1,3 @@
-
 #include "TCP.h"
 const uint8_t MASTER_GID = 12;
 const long MAGIC_NUMBER = 0x4A6F7921;
@@ -200,7 +199,6 @@ int main(int argc, char *argv[])
 		printf("Magic Number: %#04x\n", response.magic_number);
 		printf("RID: %d\n", response.nextRID);
 		printf("IP: %s\n", inet_ntoa(get_ip->sin_addr));
-
 
 
 		printf("Message being sent(hex): ");
