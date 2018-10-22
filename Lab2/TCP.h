@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -22,6 +21,9 @@
 #define REQUEST_BYTES 8
 
 #define RESPONSE_BYTES 7
+#define MASTER_PORT 10070
+
+#define MASTER_IP 0x7f000001
 
 
 /*struct message_request
@@ -36,23 +38,34 @@
 
 struct message_request
 {
- uint8_t gid1;
- long magic_number1;
+ uint8_t gid;
+ int magic_number;
 } __attribute__((__packed__));
 
-struct message_response
-{
-  uint8_t total_message_length;
-  uint8_t request_id;
-  uint8_t error_code;
-  long result;
-} __attribute__((__packed__));
+// struct message_response
+// {
+//   uint8_t total_message_length;
+//   uint8_t request_id;
+//   uint8_t error_code;
+//   long result;
+// } __attribute__((__packed__));
 
-struct master_properties {
+struct message_response {
  uint8_t nextRID;
  uint8_t gid;
- long magic_number;
- uint8_t ring_id;
- long nextSlaveIP;
+ uint32_t magic_number;
+ //uint8_t ring_id;
+ uint32_t nextSlaveIP;
  /* Declare master variables */
 }__attribute__((__packed__));
+
+struct Node {
+  uint8_t RID;
+  uint8_t nextRID;
+  uint32_t nextSlaveIP;
+  uint32_t IP;
+  uint8_t GID;
+  struct Node *next;
+};
+
+void addSlaveNode(struct Node* master, struct Node* slave);
