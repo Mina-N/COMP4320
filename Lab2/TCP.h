@@ -23,7 +23,11 @@
 
 #define RESPONSE_BYTES 7
 
-struct message_request
+
+#define Master_IP 0x7f000001
+
+
+/*struct message_request
 {
   uint8_t total_message_length;
   uint8_t request_id;
@@ -31,12 +35,38 @@ struct message_request
   uint8_t num_operands;
   short op_1;
   short op_2;
+*/
+
+struct message_request
+{
+ uint8_t gid;
+ int magic_number;
 } __attribute__((__packed__));
 
-struct message_response
-{
-  uint8_t total_message_length;
-  uint8_t request_id;
-  uint8_t error_code;
-  long result;
-} __attribute__((__packed__));
+// struct message_response
+// {
+//   uint8_t total_message_length;
+//   uint8_t request_id;
+//   uint8_t error_code;
+//   long result;
+// } __attribute__((__packed__));
+
+struct message_response {
+ uint8_t nextRID;
+ uint8_t gid;
+ long magic_number;
+ uint8_t ring_id;
+ long nextSlaveIP;
+ /* Declare master variables */
+}__attribute__((__packed__));
+
+struct Node {
+  uint8_t RID;
+  uint8_t nextRID;
+  long nextSlaveIP;
+  long IP;
+  uint8_t GID;
+  struct Node *next;
+};
+
+void addSlaveNode(struct Node* master, struct Node* slave);
