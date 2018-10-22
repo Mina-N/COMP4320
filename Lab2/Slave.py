@@ -19,7 +19,6 @@ try:
     # prompt for GID
     gid_slave = input("Please enter GID: ")
     message_repack = struct.pack('>bl', gid_slave, magicNumber) #gid is one byte, magicNumber is four bytes
-    # TODO: CHECK BL
     print >>sys.stderr, 'sending slave message to master'
     sock.send(message_repack)
 
@@ -28,14 +27,16 @@ try:
     print("Waiting for server (master) message.\n")
     message = sock.recv(longest_message_size)
     if not message:
-        print("No message received. Closing socket.")
+        print("No message received. Closing socket.\n")
         sock.close()
     message_unpacked = struct.unpack('>blbl', message)
-    #TODO: CHECK BL
     gid_master = message[0]
     magicNumberMaster = message[1]
     slaveRID = message[2]
     nextSlaveIP = message[3]
+    print("GID of master: " + str(gid_master) + "\n")
+    print("My RID: " + str(slaveRID) + "\n")
+    print("IP Address of Next Slave: " + str(nextSlaveIP) + "\n")
 
 finally:
     print >>sys.stderr, 'closing socket'
