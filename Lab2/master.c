@@ -148,7 +148,6 @@ int main(int argc, char *argv[])
 	}
 
 	printf("server: waiting for connections...\n");
-
 	while(1) {  // main accept() loop
 		sin_size = sizeof their_addr;
 		new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
@@ -169,6 +168,7 @@ int main(int argc, char *argv[])
 		if (read_value < 0)
 		{
 			perror("read from socket");
+			exit(1);
 		}
 
 		buf.magic_number = ntohl(buf.magic_number);
@@ -197,7 +197,8 @@ int main(int argc, char *argv[])
 		addSlaveNode(master, slave);
 
 
-		response.gid = MASTER_GID;
+		//response.gid = MASTER_GID;
+		response.gid = buf.gid;
 		response.magic_number = MAGIC_NUMBER;
 		response.nextRID = master->next->RID;
 		response.nextSlaveIP = slave->nextSlaveIP;
@@ -220,17 +221,20 @@ int main(int argc, char *argv[])
 
 		//TODO: Check size of message
 		/*Send message to the client */
-		if (!fork()) { // this is the child process
-			close(sockfd); // child doesn't need the listener
-			//if (send(new_fd, &msg_sent, sizeof(msg_sent), 0) == -1)
-			if (send(new_fd, &response, sizeof(response), 0) == -1)
-				perror("send");
 
-			exit(0);
+		//if (!fork()) { // this is the child process
+		//	close(sockfd); // child doesn't need the listener
+
+		if (send(new_fd, &response, sizeof(response), 0) == -1)
+		{
+			perror("send");
+			exit(1);
 		}
+			//exit(0);
+		//}
 		printf("server: Response sent\n");
 	}
-	close(new_fd);  // parent doesn't need this
-
+	close(sockfd);  // parent doesn't need this
+	//exit(0);
 	return 0;
 }

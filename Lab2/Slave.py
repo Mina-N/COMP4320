@@ -14,11 +14,12 @@ listening_port = int(sys.argv[2])
 
 server_address = (master_hostname, listening_port)
 
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.connect(server_address)
+
 
 try:
     while(addAnotherSlave == 1):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect(server_address)
         # prompt for GID
         gid_slave = input("Please enter GID: ")
         message_repack = struct.pack('>bl', gid_slave, magicNumber) #gid is one byte, magicNumber is four bytes
