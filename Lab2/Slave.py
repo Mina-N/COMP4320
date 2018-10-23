@@ -33,6 +33,7 @@ try:
             print("No message received. Closing socket.\n")
             sock.close()
         message_unpacked = struct.unpack('>blbl', message)
+        print(message_unpacked)
         gid_master = message[0]
         magicNumberMaster = message[1]
         slaveRID = message[2]

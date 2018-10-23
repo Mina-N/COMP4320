@@ -23,7 +23,6 @@
 #define RESPONSE_BYTES 7
 #define MASTER_PORT 10070
 
-#define MASTER_IP 0x7f000001
 
 
 /*struct message_request
@@ -55,15 +54,15 @@ struct message_response {
  uint8_t gid;
  uint32_t magic_number;
  //uint8_t ring_id;
- uint32_t nextSlaveIP;
+ char nextSlaveIP[4];
  /* Declare master variables */
 }__attribute__((__packed__));
 
 struct Node {
   uint8_t RID;
   uint8_t nextRID;
-  uint32_t nextSlaveIP;
-  uint32_t IP;
+  char nextSlaveIP[4];
+  char IP[4];
   uint8_t GID;
   struct Node *next;
 };
