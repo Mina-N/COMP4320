@@ -1,7 +1,10 @@
 #include "TCP.h"
+
 const uint8_t MASTER_GID = 12;
-const long MAGIC_NUMBER = 0x4A6F7921;
-const char MASTER_IP[4] = {127, 0, 0, 1};
+//const uint32_t MAGIC_NUMBER = htonl(0x4A6F7921);
+const uint32_t MAGIC_NUMBER = 0x4A6F7921;
+const char MASTER_IP[] = {127.0,0.1};
+//const uint32_t MAGIC_NUMBER = 1248819489;
 
 void sigchld_handler(int s)
 {
@@ -251,9 +254,12 @@ int main(int argc, char *argv[])
 		}
 
 		buf.magic_number = ntohl(buf.magic_number);
+		printf("--------------------------------------------------------\n");
+		printf("Message received:\n");
 		printf("Buf size: %lu \n", sizeof(buf));
-		//printf("Magic Number: %#04x\n", buf.magic_number);
-		//printf("GID: %d\n", buf.gid);
+		printf("Magic Number: %#04x\n", buf.magic_number);
+		printf("GID: %d\n", buf.gid);
+		printf("--------------------------------------------------------\n");
 
 		// message validation
 		if (sizeof(buf) != 5)
@@ -274,6 +280,7 @@ int main(int argc, char *argv[])
 
 		addSlaveNode(master, slave);
 
+
 		response.gid = MASTER_GID;
 		response.magic_number = MAGIC_NUMBER;
 		response.nextRID = master->next->RID;
@@ -283,6 +290,8 @@ int main(int argc, char *argv[])
 		}
 		// response.nextSlaveIP = slave->nextSlaveIP;
 
+		printf("--------------------------------------------------------\n");
+		printf("Message being sent:\n");
 		printf("GID: %d\n", response.gid);
 		printf("Magic Number: %#04x\n", response.magic_number);
 		printf("RID: %d\n", response.nextRID);
@@ -297,10 +306,7 @@ int main(int argc, char *argv[])
 			printf("%#04x\\", response.nextSlaveIP[i]);
 		}
 		printf("\n");
-
-		message_buf = (char *)&response;
-		printf("Client request: \n");
-		displayBuffer(message_buf, 2);
+		printf("--------------------------------------------------------\n");
 
 		//TODO: Check size of message
 		/*Send message to the client */
@@ -310,7 +316,7 @@ int main(int argc, char *argv[])
 			//if (send(new_fd, &msg_sent, sizeof(msg_sent), 0) == -1)
 			if (send(new_fd, &response, sizeof(response), 0) == -1)
 				perror("send");
-			close(new_fd);
+
 			exit(0);
 		}
 		printf("server: Response sent\n");
