@@ -51,9 +51,9 @@ struct message_request
 // } __attribute__((__packed__));
 
 struct message_response {
- uint8_t nextRID;
  uint8_t gid;
  uint32_t magic_number;
+ uint8_t nextRID;
  //uint8_t ring_id;
  uint32_t nextSlaveIP;
  /* Declare master variables */

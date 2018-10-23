@@ -32,12 +32,15 @@ try:
         if not message:
             print("No message received. Closing socket.\n")
             sock.close()
-        message_unpacked = struct.unpack('>blbl', message)
-        gid_master = message[0]
-        magicNumberMaster = message[1]
-        slaveRID = message[2]
-        nextSlaveIP = message[3]
+
+        message_unpacked = struct.unpack('<blbl', message)
+
+        gid_master = message_unpacked[0]
+        magicNumberMaster = hex((message_unpacked[1]))
+        slaveRID = message_unpacked[2]
+        nextSlaveIP = hex(message_unpacked[3])
         print("GID of master: " + str(gid_master) + "\n")
+        print("Magic Number: " + str(magicNumberMaster) + "\n")
         print("My RID: " + str(slaveRID) + "\n")
         print("IP Address of Next Slave: " + str(nextSlaveIP) + "\n")
         addAnotherSlave = input("Press 1 to add another slave, or 0 to exit. ")
