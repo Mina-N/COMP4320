@@ -232,7 +232,8 @@ int main(int argc, char *argv[])
 		}
 			//exit(0);
 		//}
-		printf("server: Response sent\n");
+		printf("Server: Response sent\n");
+		printf("Waiting for response from Client...\n");
 	}
 	close(sockfd);  // parent doesn't need this
 	//exit(0);
