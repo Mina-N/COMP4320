@@ -68,4 +68,4 @@ struct Node {
   struct Node *next;
 };
 
-void addSlaveNode(struct Node* master, struct Node* slave);
+void addSlaveNode(struct Node* master, struct Node* slave);  
