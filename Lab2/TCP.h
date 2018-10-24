@@ -26,6 +26,7 @@
 #define MASTER_IP 0x7f000001
 
 
+
 /*struct message_request
 {
   uint8_t total_message_length;
@@ -68,4 +69,4 @@ struct Node {
   struct Node *next;
 };
 
-void addSlaveNode(struct Node* master, struct Node* slave);  
+void addSlaveNode(struct Node* master, struct Node* slave);

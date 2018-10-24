@@ -2,6 +2,11 @@ import socket
 import struct
 import sys
 
+
+def hex_to_ip_decimal(hex_data):
+  ipaddr = "%i.%i.%i.%i" % (int(hex_data[6:8],16),int(hex_data[4:6],16),int(hex_data[2:4],16),int(hex_data[0:2],16))
+  return ipaddr
+
 magicNumber = 0x4A6F7921
 addAnotherSlave = 1
 
@@ -35,15 +40,17 @@ try:
             sock.close()
 
         message_unpacked = struct.unpack('<blbl', message)
-
         gid_master = message_unpacked[0]
         magicNumberMaster = hex((message_unpacked[1]))
         slaveRID = message_unpacked[2]
         nextSlaveIP = hex(message_unpacked[3])
+	nextSlaveIP = nextSlaveIP[2:]
+	print(nextSlaveIP)
         print("GID of master: " + str(gid_master) + "\n")
         print("Magic Number: " + str(magicNumberMaster) + "\n")
         print("My RID: " + str(slaveRID) + "\n")
-        print("IP Address of Next Slave: " + str(nextSlaveIP) + "\n")
+        dottedDecimal = hex_to_ip_decimal(nextSlaveIP)
+        print("IP Address of Next Slave: " + str(dottedDecimal) + "\n")
         addAnotherSlave = input("Press 1 to add another slave, or 0 to exit. ")
 
 finally:

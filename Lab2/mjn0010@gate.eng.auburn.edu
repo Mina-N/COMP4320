@@ -175,8 +175,8 @@ int main(int argc, char *argv[])
 		printf("--------------------------------------------------------\n");
 		printf("Message received:\n");
 		printf("Buf size: %lu \n", sizeof(buf));
-		printf("GID of Slave: %d\n", buf.gid);
 		printf("Magic Number: %#04x\n", buf.magic_number);
+		printf("GID: %d\n", buf.gid);
 		printf("--------------------------------------------------------\n");
 
 		// message validation
@@ -197,15 +197,15 @@ int main(int argc, char *argv[])
 		addSlaveNode(master, slave);
 
 
-		response.gid = MASTER_GID;
-		//response.gid = buf.gid;
+		//response.gid = MASTER_GID;
+		response.gid = buf.gid;
 		response.magic_number = MAGIC_NUMBER;
 		response.nextRID = master->next->RID;
-		uint32_t nextSlaveIP = ntohl(slave->nextSlaveIP);
+		response.nextSlaveIP = slave->nextSlaveIP;
 
 		printf("--------------------------------------------------------\n");
 		printf("Message being sent:\n");
-		printf("GID of Master: %d\n", response.gid);
+		printf("GID: %d\n", response.gid);
 		printf("Magic Number: %#04x\n", response.magic_number);
 		printf("RID: %d\n", response.nextRID);
 		printf("IP: %s\n", inet_ntoa(get_ip->sin_addr));
@@ -215,14 +215,12 @@ int main(int argc, char *argv[])
 		printf("%#04x\\", response.gid);
 		printf("%#04x\\", response.magic_number);
 		printf("%#04x\\", response.nextRID);
-		printf("%#04x\\", nextSlaveIP);
+		printf("%#04x\\", response.nextSlaveIP);
 		printf("\n");
 		printf("--------------------------------------------------------\n");
 
 		//TODO: Check size of message
 		/*Send message to the client */
-
-		response.nextSlaveIP = htonl(nextSlaveIP);
 
 		//if (!fork()) { // this is the child process
 		//	close(sockfd); // child doesn't need the listener
