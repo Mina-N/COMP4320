@@ -45,7 +45,6 @@ try:
         slaveRID = message_unpacked[2]
         nextSlaveIP = hex(message_unpacked[3])
 	nextSlaveIP = nextSlaveIP[2:]
-	print(nextSlaveIP)
         print("GID of master: " + str(gid_master) + "\n")
         print("Magic Number: " + str(magicNumberMaster) + "\n")
         print("My RID: " + str(slaveRID) + "\n")

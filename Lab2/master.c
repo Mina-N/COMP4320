@@ -75,20 +75,19 @@ int main(int argc, char *argv[])
 	char message[MAXDATASIZE];
 	char nextSlaveIP[15];
 	char *portNumber;
+	struct sockaddr my_addr;
 
-	// initializing the master node of the linked list.
-	struct Node* master = malloc(sizeof(struct Node));
-	master->GID = MASTER_GID;
-	master->IP = MASTER_IP;
-	master->RID = 0;
-	master->nextRID = 1;
-	master->next = master;
-	master->nextSlaveIP = master->next->IP;
+	//struct sockaddr master_adr;
+	struct addrinfo *addr_info;
+	char myName[1024];
+	myName[1023] = '\0';
+	//char master[1024];
+	//int masterIP;
 
 	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_PASSIVE; // use my IP
+	hints.ai_socktype = SOCK_STREAM;
 
 
 
@@ -147,6 +146,33 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
+
+	//Added this information below
+	gethostname(myName, 1024);
+	//printf("hostname: %s\n", myName);
+	int return_value = getaddrinfo(myName, portNumber, NULL, &addr_info);
+	if(return_value != 0)
+	{
+		printf("addr_info is null");
+		printf("%d", return_value);
+	}
+	my_addr = *(addr_info->ai_addr);
+	unsigned long myIPAsInt = ((struct sockaddr_in*)&my_addr)->sin_addr.s_addr;
+	unsigned long next_slaveIP = myIPAsInt;
+	uint32_t next_slave_IP = ntohl(next_slaveIP);
+	//printf("Master IP is: ");
+	//printf("%#04x\\", next_slave_IP);
+
+	// initializing the master node of the linked list.
+	struct Node* master = malloc(sizeof(struct Node));
+	master->GID = MASTER_GID;
+	master->IP = next_slaveIP;
+	master->RID = 0;
+	master->nextRID = 1;
+	master->next = master;
+	master->nextSlaveIP = master->next->IP;
+
+
 	printf("server: waiting for connections...\n");
 	while(1) {  // main accept() loop
 		sin_size = sizeof their_addr;
@@ -202,13 +228,15 @@ int main(int argc, char *argv[])
 		response.magic_number = MAGIC_NUMBER;
 		response.nextRID = master->next->RID;
 		uint32_t nextSlaveIP = ntohl(slave->nextSlaveIP);
+		struct in_addr ip_addr;
+		ip_addr.s_addr = ntohl(nextSlaveIP);
 
 		printf("--------------------------------------------------------\n");
 		printf("Message being sent:\n");
 		printf("GID of Master: %d\n", response.gid);
 		printf("Magic Number: %#04x\n", response.magic_number);
 		printf("RID: %d\n", response.nextRID);
-		printf("IP: %s\n", inet_ntoa(get_ip->sin_addr));
+		printf("IP: %s\n", inet_ntoa(ip_addr));
 
 
 		printf("Message being sent(hex): ");
