@@ -224,7 +224,6 @@ int main(int argc, char *argv[])
 
 
 		response.gid = MASTER_GID;
-		//response.gid = buf.gid;
 		response.magic_number = MAGIC_NUMBER;
 		response.nextRID = master->next->RID;
 		uint32_t nextSlaveIP = ntohl(slave->nextSlaveIP);
@@ -236,8 +235,7 @@ int main(int argc, char *argv[])
 		printf("GID of Master: %d\n", response.gid);
 		printf("Magic Number: %#04x\n", response.magic_number);
 		printf("RID: %d\n", response.nextRID);
-		printf("IP: %s\n", inet_ntoa(ip_addr));
-
+		printf("Next Slave IP: %s\n", inet_ntoa(ip_addr));
 
 		printf("Message being sent(hex): ");
 		printf("%#04x\\", response.gid);
