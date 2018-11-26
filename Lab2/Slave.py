@@ -22,7 +22,8 @@ server_address = (master_hostname, listening_port)
 
 
 try:
-    while(addAnotherSlave == 1):
+    INPUT = input("Press 1 to add a Slave node:\nPress 2 to send a message:\nPress 3 to exit:\n")
+    while(INPUT == 1):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect(server_address)
         # prompt for GID
@@ -50,7 +51,22 @@ try:
         print("My RID: " + str(slaveRID))
         dottedDecimal = hex_to_ip_decimal(nextSlaveIP)
         print("IP Address of Next Slave: " + str(dottedDecimal))
-        addAnotherSlave = input("Press 1 to add another slave, or 0 to exit. ")
+
+
+
+
+    while(INPUT == 2):
+        ringId = input("please enter a ring id: \n")
+        msg = input("please enter your message here: \n")
+        sock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM) # UDP
+        #need to implement all these
+        message = struct.pack('>blbbbqb', gid_slave, magicNumber, ttl, destRID, srcRID, msg, checksum)
+        #sock.sendto(MESSAGE, (UDP_IP, UDP_PORT))
+
+    while(INPUT == 3):
+        #sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        exit();
+
 
 finally:
     print >>sys.stderr, 'closing socket'
