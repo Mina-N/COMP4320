@@ -52,7 +52,7 @@ def read_udp(s, s2):
     finalChecksum = truncateBitString(newChecksum, 1)
 
     #If message was corrupted, print error message.
-    if (finalChecksum != truncateBitString(bin(checksum), 1)): 
+    if (finalChecksum != truncateBitString(bin(checksum), 1)):
         print("Message was corrupted. Message will be dropped.\n")
     else:
         #Is message for me? Print it out.
@@ -65,10 +65,17 @@ def read_udp(s, s2):
             if (ttl > 1):
                 #Decrement TTL
                 ttl -= 1
-                #TODO: Calculate new checksum
-                checksum =
+
+                #Calculate new checksum
+                list_of_bytes[5] = ttl
+                calculatedChecksum = calculateChecksumWithoutInverting(list_of_bytes[0], list_of_bytes[1])
+                for i in range(2, len(list_of_bytes)):
+                    calculatedChecksum = calculateChecksumWithoutInverting(calculatedChecksum, list_of_bytes[i])
+                newChecksum = bit_not(int(calculatedChecksum,2))
+                finalChecksum = truncateBitString(newChecksum, 1)
+
                 #Create a new udp_message.
-                udp_message = struct.pack('>blbbbsb', gid_sendingSlave, magicNumberMaster, ttl, rid_dest, rid_source, message, checksum)
+                udp_message = struct.pack('>blbbbsb', gid_sendingSlave, magicNumberMaster, ttl, rid_dest, rid_source, message, finalChecksum)
                 s2.sendto(udp_message)
 
 
@@ -134,8 +141,34 @@ try:
                 while (len(message.encode('utf-8')) > 64): #TODO: check this
                     message = input("Please enter a shorter message.\n")
                 ttl = 255
-                checksum = 0 #TODO: compute checksum
-                message = struct.pack('>blbbbsb', gid_slave, magicNumber, ttl, ringIDDest, slaveRID, message, checksum)
+                list_of_bytes = []
+                list_of_bytes.append(truncateBitString(bin(gid_slave), 1))
+                #Split magic number into four bytes and add to list.
+                magicNumberMasterBinary = truncateBitString(bin(magicNumber), 4)
+                list_of_bytes.append(magicNumberMasterBinary[0:8])
+                list_of_bytes.append(magicNumberMasterBinary[8:16])
+                list_of_bytes.append(magicNumberMasterBinary[16:24])
+                list_of_bytes.append(magicNumberMasterBinary[24:32])
+                list_of_bytes.append(truncateBitString(bin(ttl), 1))
+                list_of_bytes.append(truncateBitString(bin(ringIDDest), 1))
+                list_of_bytes.append(truncateBitString(bin(slaveRID), 1))
+
+                #Split message into bytes and add to list.
+                numBytesMessage = len(message.encode('utf-8'))
+                messageBinary = truncateBitString(bin(message), numBytesMessage)
+
+                i = 0
+                while (i < numBytesMessage * 8):
+                    list_of_bytes.append(messageBinary[i, i + 8])
+                    i += 8
+
+                calculatedChecksum = calculateChecksumWithoutInverting(list_of_bytes[0], list_of_bytes[1])
+                for i in range(2, len(list_of_bytes)):
+                    calculatedChecksum = calculateChecksumWithoutInverting(calculatedChecksum, list_of_bytes[i])
+                newChecksum = bit_not(int(calculatedChecksum,2))
+                finalChecksum = truncateBitString(newChecksum, 1)
+
+                message = struct.pack('>blbbbsb', gid_slave, magicNumber, ttl, ringIDDest, slaveRID, message, finalChecksum)
                 sock_udp2.sendto(message)
 
 
