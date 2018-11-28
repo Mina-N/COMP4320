@@ -21,38 +21,55 @@ def read_udp(s, s2):
 
     #Calculate checksum, and ensure that message was not corrupted.
     list_of_bytes = []
-    list_of_bytes.append(truncateBitString(bin(gid_sendingSlave)))
+    list_of_bytes.append(truncateBitString(bin(gid_sendingSlave), 1))
 
-    #TODO: SPLIT MAGIC NUMBER INTO BYTES AND ADD TO LIST_OF_BYTES
+    #Split magic number into four bytes and add to list.
+    magicNumberMasterBinary = truncateBitString(bin(magicNumberMaster), 4)
+    list_of_bytes.append(magicNumberMasterBinary[0:8])
+    list_of_bytes.append(magicNumberMasterBinary[8:16])
+    list_of_bytes.append(magicNumberMasterBinary[16:24])
+    list_of_bytes.append(magicNumberMasterBinary[24:32])
 
-    list_of_bytes.append(truncateBitString(bin(ttl)))
-    list_of_bytes.append(truncateBitString(bin(rid_dest)))
-    list_of_bytes.append(truncateBitString(bin(rid_source)))
+    list_of_bytes.append(truncateBitString(bin(ttl), 1))
+    list_of_bytes.append(truncateBitString(bin(rid_dest), 1))
+    list_of_bytes.append(truncateBitString(bin(rid_source), 1))
 
-    #TODO: SPLIT MESSAGE INTO BYTES AND ADD TO LIST_OF_BYTES
+    #Split message into bytes and add to list.
+    numBytesMessage = len(message.encode('utf-8'))
+    messageBinary = truncateBitString(bin(message), numBytesMessage)
 
-    list_of_bytes.append(truncateBitString(bin(checksum)))
+    i = 0
+    while (i < numBytesMessage * 8):
+        list_of_bytes.append(messageBinary[i, i + 8])
+        i += 8
 
-    calculatedChecksum = calculateChecksum(list_of_bytes[0], list_of_bytes[1])
+    #list_of_bytes.append(truncateBitString(bin(checksum), 1))
+
+    calculatedChecksum = calculateChecksumWithoutInverting(list_of_bytes[0], list_of_bytes[1])
     for i in range(2, len(list_of_bytes)):
-        calculatedChecksum = calculateChecksum(calculatedChecksum, list_of_bytes[i]) #TODO: verify checksum is computed correctly
+        calculatedChecksum = calculateChecksumWithoutInverting(calculatedChecksum, list_of_bytes[i])
+    newChecksum = bit_not(int(calculatedChecksum,2))
+    finalChecksum = truncateBitString(newChecksum, 1)
 
-    #TODO: If message was corrupted, print error message
-
-
-    #Is message for me? Print it out.
-    if (rid_dest == slaveRID):
-        print("The payload is:\n")
-        print(message)
-
-    #Is message not for me? Forward it.
+    #If message was corrupted, print error message.
+    if (finalChecksum != truncateBitString(bin(checksum), 1)): 
+        print("Message was corrupted. Message will be dropped.\n")
     else:
-        #Decrement TTL
-        ttl -= 1
-        #TODO: Calculate new checksum
-        #TODO: create new udp_message
-        udp_message = ''
-        s2.sendto(udp_message, addr)
+        #Is message for me? Print it out.
+        if (rid_dest == slaveRID):
+            print("The payload is:\n")
+            print(message)
+
+        #Is message not for me? Forward it if ttl is greater than 1.
+        else:
+            if (ttl > 1):
+                #Decrement TTL
+                ttl -= 1
+                #TODO: Calculate new checksum
+                checksum =
+                #Create a new udp_message.
+                udp_message = struct.pack('>blbbbsb', gid_sendingSlave, magicNumberMaster, ttl, rid_dest, rid_source, message, checksum)
+                s2.sendto(udp_message)
 
 
 magicNumber = 0x4A6F7921
@@ -111,18 +128,15 @@ try:
         for s in ready_read:
             if s == sock_udp1:
                 read_udp(s, sock_udp2)
-
             else:
                 ringIDDest = input("Please enter a ring ID.\n")
                 message = input("Please enter a message.\n")
                 while (len(message.encode('utf-8')) > 64): #TODO: check this
                     message = input("Please enter a shorter message.\n")
-
-                ttl = 255 #TODO: check this
+                ttl = 255
                 checksum = 0 #TODO: compute checksum
                 message = struct.pack('>blbbbsb', gid_slave, magicNumber, ttl, ringIDDest, slaveRID, message, checksum)
-
-                #send message using sock_udp2
+                sock_udp2.sendto(message)
 
 
 finally:
