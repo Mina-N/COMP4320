@@ -43,13 +43,17 @@ struct message_request
  int magic_number;
 } __attribute__((__packed__));
 
-// struct message_response
-// {
-//   uint8_t total_message_length;
-//   uint8_t request_id;
-//   uint8_t error_code;
-//   long result;
-// } __attribute__((__packed__));
+struct message_request_udp
+{
+ uint8_t gid;
+ int magic_number;
+ uint8_t ttl;
+ uint8_t rid_dest;
+ uint8_t rid_src;
+ uint8_t checksum;
+ char message[];
+} __attribute__((__packed__));
+
 
 struct message_response {
  uint8_t gid;
@@ -60,15 +64,16 @@ struct message_response {
  /* Declare master variables */
 }__attribute__((__packed__));
 
-struct forwarding_datagram {
-  uint8_t gid;
-  uint32_t magic_number;
-  uint8_t time_to_live;
-  uint8_t rid_dest;
-  uint8_t rid_src;
-  unsigned char* message;
-  uint8_t checksum;
-};
+
+struct message_response_udp {
+ uint8_t gid;
+ uint32_t magic_number;
+ uint8_t nextRID;
+ //uint8_t ring_id;
+ uint32_t nextSlaveIP;
+ /* Declare master variables */
+}__attribute__((__packed__));
+
 
 struct Node {
   uint8_t RID;
