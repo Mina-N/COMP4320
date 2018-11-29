@@ -1,10 +1,10 @@
-#include "TCP.h"
-#include <sys/select.h>
+/*
+** server.c -- a stream socket server demo
+*/
 
+#include "TCP.h"
 const uint8_t MASTER_GID = 12;
-//const uint32_t MAGIC_NUMBER = htonl(0x4A6F7921);
-const uint32_t MAGIC_NUMBER = 0x4A6F7921;
-//const uint32_t MAGIC_NUMBER = 1248819489;
+const long MAGIC_NUMBER = 0x4A6F7921;
 
 void sigchld_handler(int s)
 {
@@ -50,40 +50,13 @@ void displayBuffer(char *Buffer, int length)
 
 // adds a slave node to the linked list ring. Master points to this new slave added.
 void addSlaveNode(struct Node* master, struct Node* slave) {
-	// so this is going to add a node directly after the master node.
+	// so this is going to add a node directly after the master node. 
 	slave->RID = master->nextRID;
 	slave->nextSlaveIP = master->next->IP;
 	slave->next = master->next;
 	master->nextSlaveIP = slave->IP;
 	master->next = slave;
 	master->nextRID += 1;
-}
-
-char getChecksum(char* message) {
-	size_t message_size = sizeof(message) - 1;
-	uint8_t sum = 0;
-	// looping through byte array message
-	for(int i = 1; i < message_size; i++) {
-		// get two bytes
-		uint8_t byte1 = message[i-1];
-		uint8_t byte2 = message[i];
-
-		// sum the bytes
-		sum = byte1 + byte2;
-
-		// overflow has occurred, add one
-		if(sum < byte1) {
-			sum = sum + 1;
-		}
-	}
-
-	// negate the final sum
-	sum = ~sum;
-	return sum;
-}
-
-int getPortNumber() {
-	10010 + (MASTER_GID % 30)*5;
 }
 
 int main(int argc, char *argv[])
@@ -98,28 +71,25 @@ int main(int argc, char *argv[])
 	int rv;
 	struct message_request buf;
 	struct message_response response;
-	char *message_buf;
+
 	unsigned char msg_sent[10];
-	unsigned char datagramBuffer[MAXDATASIZE];
+	char message[MAXDATASIZE];
 	char nextSlaveIP[15];
 	char *portNumber;
-	struct sockaddr my_addr;
-	fd_set readfds;
-	struct timeval tv;
 
-
-
-	//struct sockaddr master_adr;
-	struct addrinfo *addr_info;
-	char myName[1024];
-	myName[1023] = '\0';
-	//char master[1024];
-	//int masterIP;
+	// initializing the master node of the linked list.
+	struct Node* master = malloc(sizeof(struct Node));
+	master->GID = MASTER_GID;
+	master->IP = MASTER_IP;
+	master->RID = 0;
+	master->nextRID = 1;
+	master->next = master;
+	master->nextSlaveIP = master->next->IP;
 
 	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_UNSPEC;
-	hints.ai_flags = AI_PASSIVE; // use my IP
 	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = AI_PASSIVE; // use my IP
 
 
 
@@ -178,37 +148,9 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-
-	//Added this information below
-	gethostname(myName, 1024);
-	//printf("hostname: %s\n", myName);
-	int return_value = getaddrinfo(myName, portNumber, NULL, &addr_info);
-	if(return_value != 0)
-	{
-		printf("addr_info is null");
-		printf("%d", return_value);
-	}
-	my_addr = *(addr_info->ai_addr);
-	unsigned long myIPAsInt = ((struct sockaddr_in*)&my_addr)->sin_addr.s_addr;
-	unsigned long next_slaveIP = myIPAsInt;
-	uint32_t next_slave_IP = ntohl(next_slaveIP);
-	//printf("Master IP is: ");
-	//printf("%#04x\\", next_slave_IP);
-
-	// initializing the master node of the linked list.
-	struct Node* master = malloc(sizeof(struct Node));
-	master->GID = MASTER_GID;
-	master->IP = next_slaveIP;
-	master->RID = 0;
-	master->nextRID = 1;
-	master->next = master;
-	master->nextSlaveIP = master->next->IP;
-
 	printf("server: waiting for connections...\n");
-	while(1) {  // main accept() loop
-		FD_ZERO(&readfds);
-		FD_SET(sockfd, &readfds);
 
+	while(1) {  // main accept() loop
 		sin_size = sizeof their_addr;
 		new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
 
@@ -224,20 +166,16 @@ int main(int argc, char *argv[])
 
 		/* Listen for response from client */
 		read_value = recv(new_fd, &buf, MAXDATASIZE-1, 0);
-
+		
 		if (read_value < 0)
 		{
 			perror("read from socket");
-			exit(1);
 		}
 
 		buf.magic_number = ntohl(buf.magic_number);
-		printf("--------------------------------------------------------\n");
-		printf("Message received:\n");
 		printf("Buf size: %lu \n", sizeof(buf));
-		printf("GID of Slave: %d\n", buf.gid);
 		printf("Magic Number: %#04x\n", buf.magic_number);
-		printf("--------------------------------------------------------\n");
+		printf("GID: %d\n", buf.gid);
 
 		// message validation
 		if(sizeof(buf) != 5) {
@@ -255,58 +193,47 @@ int main(int argc, char *argv[])
 		slave->nextRID = 0;
 
 		addSlaveNode(master, slave);
-
-
-		// if the received datagram's rid is 0, message is for me
-		if(master->RID == 0) {
-			// display the datagram received
-		}	
-		else {
-			// forward the datagram
-		}
-
-
+		
 		response.gid = MASTER_GID;
 		response.magic_number = MAGIC_NUMBER;
-		response.nextRID = master->next->RID;
-		uint32_t nextSlaveIP = ntohl(slave->nextSlaveIP);
-		struct in_addr ip_addr;
-		ip_addr.s_addr = ntohl(nextSlaveIP);
+		response.ring_id = master->next->RID;
+		response.nextSlaveIP = slave->nextSlaveIP;
 
-		printf("--------------------------------------------------------\n");
-		printf("Message being sent:\n");
-		printf("GID of Master: %d\n", response.gid);
-		printf("Magic Number: %#04x\n", response.magic_number);
-		printf("RID: %d\n", response.nextRID);
-		printf("Next Slave IP: %s\n", inet_ntoa(ip_addr));
+		printf("GID: %d\n", response.gid);
+		printf("Magic Number: %#04lx\n", response.magic_number);
+		printf("RID: %d\n", response.ring_id);
+		printf("IP: %s\n", inet_ntoa(get_ip->sin_addr));
+
+		
+
+		memcpy(msg_sent, &response.gid, 1);
+		memcpy(msg_sent + 1, &response.magic_number, 4);
+		memcpy(msg_sent + 2, &response.ring_id, 1);
+		memcpy(msg_sent + 3, &response.nextSlaveIP, 4);
 
 		printf("Message being sent(hex): ");
-		printf("%#04x\\", response.gid);
-		printf("%#04x\\", response.magic_number);
-		printf("%#04x\\", response.nextRID);
-		printf("%#04x\\", nextSlaveIP);
+		int j = 0;
+		while(j < 10) {
+			printf("%#04x\\", msg_sent[j]);
+			j++;
+		}
 		printf("\n");
-		printf("--------------------------------------------------------\n");
+
+		char *message_ptr = message;
+		displayBuffer(message_ptr, 2);
 
 		//TODO: Check size of message
 		/*Send message to the client */
-
-		response.nextSlaveIP = htonl(nextSlaveIP);
-
-		//if (!fork()) { // this is the child process
-		//	close(sockfd); // child doesn't need the listener
-
-		if (send(new_fd, &response, sizeof(response), 0) == -1)
-		{
-			perror("send");
-			exit(1);
+		if (!fork()) { // this is the child process
+			close(sockfd); // child doesn't need the listener
+			if (send(new_fd, &msg_sent, sizeof(msg_sent), 0) == -1)
+				perror("send");
+			close(new_fd);
+			exit(0);
 		}
-			//exit(0);
-		//}
-		printf("Server: Response sent\n");
-		printf("Waiting for response from Client...\n");
+		printf("server: Response sent\n");		
 	}
-	close(sockfd);  // parent doesn't need this
-	//exit(0);
+	close(new_fd);  // parent doesn't need this
+
 	return 0;
 }
