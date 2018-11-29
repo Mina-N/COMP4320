@@ -1,4 +1,5 @@
 #include "TCP.h"
+#include <sys/select.h>
 
 const uint8_t MASTER_GID = 12;
 //const uint32_t MAGIC_NUMBER = htonl(0x4A6F7921);
@@ -58,6 +59,33 @@ void addSlaveNode(struct Node* master, struct Node* slave) {
 	master->nextRID += 1;
 }
 
+char getChecksum(char* message) {
+	size_t message_size = sizeof(message) - 1;
+	uint8_t sum = 0;
+	// looping through byte array message
+	for(int i = 1; i < message_size; i++) {
+		// get two bytes
+		uint8_t byte1 = message[i-1];
+		uint8_t byte2 = message[i];
+
+		// sum the bytes
+		sum = byte1 + byte2;
+
+		// overflow has occurred, add one
+		if(sum < byte1) {
+			sum = sum + 1;
+		}
+	}
+
+	// negate the final sum
+	sum = ~sum;
+	return sum;
+}
+
+int getPortNumber() {
+	10010 + (MASTER_GID % 30)*5;
+}
+
 int main(int argc, char *argv[])
 {
 	int sockfd, new_fd, num_bytes, read_value;  // listen on sock_fd, new connection on new_fd
@@ -72,10 +100,14 @@ int main(int argc, char *argv[])
 	struct message_response response;
 	char *message_buf;
 	unsigned char msg_sent[10];
-	char message[MAXDATASIZE];
+	unsigned char datagramBuffer[MAXDATASIZE];
 	char nextSlaveIP[15];
 	char *portNumber;
 	struct sockaddr my_addr;
+	fd_set readfds;
+	struct timeval tv;
+
+
 
 	//struct sockaddr master_adr;
 	struct addrinfo *addr_info;
@@ -172,9 +204,11 @@ int main(int argc, char *argv[])
 	master->next = master;
 	master->nextSlaveIP = master->next->IP;
 
-
 	printf("server: waiting for connections...\n");
 	while(1) {  // main accept() loop
+		FD_ZERO(&readfds);
+		FD_SET(sockfd, &readfds);
+
 		sin_size = sizeof their_addr;
 		new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
 
@@ -221,6 +255,15 @@ int main(int argc, char *argv[])
 		slave->nextRID = 0;
 
 		addSlaveNode(master, slave);
+
+
+		// if the received datagram's rid is 0, message is for me
+		if(master->RID == 0) {
+			// display the datagram received
+		}	
+		else {
+			// forward the datagram
+		}
 
 
 		response.gid = MASTER_GID;

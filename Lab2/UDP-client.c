@@ -13,7 +13,13 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
-#define SERVERPORT "10010"	// the port users will be connecting to
+#define SERVERPORT "10010" // the port users will be connecting to
+
+struct datagram
+{
+	uint8_t gid;
+	uint32_t magic_number;
+} __attribute__((__packed__));
 
 int main(int argc, char *argv[])
 {
@@ -21,9 +27,15 @@ int main(int argc, char *argv[])
 	struct addrinfo hints, *servinfo, *p;
 	int rv;
 	int numbytes;
+	struct datagram datagram_to_send;
 
-	if (argc != 3) {
-		fprintf(stderr,"usage: talker hostname message\n");
+	datagram_to_send.gid = 10;
+	datagram_to_send.magic_number = 0x4A6F7921;
+
+
+	if (argc != 3)
+	{
+		fprintf(stderr, "usage: talker hostname message\n");
 		exit(1);
 	}
 
@@ -31,15 +43,18 @@ int main(int argc, char *argv[])
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_DGRAM;
 
-	if ((rv = getaddrinfo(argv[1], SERVERPORT, &hints, &servinfo)) != 0) {
+	if ((rv = getaddrinfo(argv[1], SERVERPORT, &hints, &servinfo)) != 0)
+	{
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
 		return 1;
 	}
 
 	// loop through all the results and make a socket
-	for(p = servinfo; p != NULL; p = p->ai_next) {
+	for (p = servinfo; p != NULL; p = p->ai_next)
+	{
 		if ((sockfd = socket(p->ai_family, p->ai_socktype,
-				p->ai_protocol)) == -1) {
+							 p->ai_protocol)) == -1)
+		{
 			perror("talker: socket");
 			continue;
 		}
@@ -47,16 +62,20 @@ int main(int argc, char *argv[])
 		break;
 	}
 
-	if (p == NULL) {
+	if (p == NULL)
+	{
 		fprintf(stderr, "talker: failed to create socket\n");
 		return 2;
 	}
 
-	if ((numbytes = sendto(sockfd, argv[2], strlen(argv[2]), 0,
-			 p->ai_addr, p->ai_addrlen)) == -1) {
+	if ((numbytes = sendto(sockfd, &datagram_to_send, sizeof(datagram_to_send), 0,
+						   p->ai_addr, p->ai_addrlen)) == -1)
+	{
 		perror("talker: sendto");
 		exit(1);
 	}
+
+	
 
 	freeaddrinfo(servinfo);
 

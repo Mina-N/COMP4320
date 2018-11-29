@@ -60,6 +60,16 @@ struct message_response {
  /* Declare master variables */
 }__attribute__((__packed__));
 
+struct forwarding_datagram {
+  uint8_t gid;
+  uint32_t magic_number;
+  uint8_t time_to_live;
+  uint8_t rid_dest;
+  uint8_t rid_src;
+  unsigned char* message;
+  uint8_t checksum;
+};
+
 struct Node {
   uint8_t RID;
   uint8_t nextRID;
