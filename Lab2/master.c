@@ -3,8 +3,60 @@
 */
 
 #include "TCP.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h> //Header file for sleep(). man 3 sleep for details.
+#include <pthread.h>
+
+// A normal C function that is executed as a thread
+// when its name is specified in pthread_create()
+// void *myThreadFun(void *vargp)
+// {
+//     sleep(1);
+//     printf("Printing GeeksQuiz from Thread \n");
+//     return NULL;
+// }
+
+// int main()
+// {
+//     pthread_t thread_id;
+//     printf("Before Thread\n");
+//     pthread_create(&thread_id, NULL, myThreadFun, NULL);
+//     pthread_join(thread_id, NULL);
+//     printf("After Thread\n");
+//     exit(0);
+// }
 const uint8_t MASTER_GID = 12;
 const long MAGIC_NUMBER = 0x4A6F7921;
+int sockfd, udpfd, new_fd, maxfd, nready, num_bytes, read_value; // listen on sock_fd, new connection on new_fd
+fd_set rset;
+struct addrinfo hints, *servinfo, *p;
+struct sockaddr_storage their_addr; // connector's address information
+socklen_t sin_size;
+struct sigaction sa;
+int yes = 1;
+char s[INET6_ADDRSTRLEN];
+int rv;
+struct message_request buf;
+struct message_request_udp udp_buf;
+struct message_response response;
+struct message_response_udp udp_response;
+pid_t childpid;
+char *message_buf;
+unsigned char msg_sent[10];
+char message[MAXDATASIZE];
+char nextSlaveIP[15];
+char *portNumber;
+char buffer[1024];
+ssize_t n;
+socklen_t len;
+const int on = 1;
+struct sockaddr_in cliaddr, servaddr;
+socklen_t addr_len;
+struct Node *master;
+
+pthread_t server_thread_id;
+pthread_t send_dgram_thread_id;
 
 void sigchld_handler(int s)
 {
@@ -69,172 +121,44 @@ void addSlaveNode(struct Node *master, struct Node *slave)
 	master->nextRID += 1;
 }
 
-int main(int argc, char *argv[])
+uint8_t getChecksum(char *message)
 {
-	int sockfd, udpfd, new_fd, maxfd, nready, num_bytes, read_value; // listen on sock_fd, new connection on new_fd
-	struct addrinfo hints, *servinfo, *p;
-	struct sockaddr_storage their_addr; // connector's address information
-	socklen_t sin_size;
-	struct sigaction sa;
-	int yes = 1;
-	char s[INET6_ADDRSTRLEN];
-	int rv;
-	struct message_request buf;
-	struct message_request_udp udp_buf;
-	struct message_response response;
-	struct message_response_udp udp_response;
-	pid_t childpid;
-	fd_set rset;
-	char *message_buf;
-	unsigned char msg_sent[10];
-	char message[MAXDATASIZE];
-	char nextSlaveIP[15];
-	char *portNumber;
-	char buffer[1024];
-	ssize_t n;
-	socklen_t len;
-	const int on = 1;
-	struct sockaddr_in cliaddr, servaddr;
-	socklen_t addr_len;
 
-	// initializing the master node of the linked list.
-	struct Node *master = malloc(sizeof(struct Node));
-	master->GID = MASTER_GID;
-	master->IP = MASTER_IP;
-	master->RID = 0;
-	master->nextRID = 1;
-	master->next = master;
-	master->nextSlaveIP = master->next->IP;
+	size_t message_len = sizeof(message) - 1;
+	uint8_t sum = 0;
 
-	memset(&hints, 0, sizeof hints);
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_flags = AI_PASSIVE; // use my IP
-
-	if (argc != 2)
-	{ //error entering in command line prompt: client servername
-		fprintf(stderr, "usage: server portNumber\n");
-		exit(1);
-	}
-
-	portNumber = argv[1];
-
-	if ((rv = getaddrinfo(NULL, portNumber, &hints, &servinfo)) != 0)
+	for (int i = 1; i < message_len; i++)
 	{
-		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-		return 1;
-	}
+		uint8_t byte1 = message[i - 1];
+		uint8_t byte2 = message[i];
 
-	// loop through all the results and bind to the first we can
-	for (p = servinfo; p != NULL; p = p->ai_next)
-	{
-		if ((sockfd = socket(p->ai_family, p->ai_socktype,
-							 p->ai_protocol)) == -1)
+		// sum the two bytes
+		sum = byte1 + byte2;
+
+		// if overflow occurs, add one to the sum
+		if (sum < byte1)
 		{
-			perror("server: TCP socket");
-			continue;
+			sum = sum + 1;
 		}
-
-		if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes,
-					   sizeof(int)) == -1)
-		{
-			perror("setsockopt");
-			exit(1);
-		}
-
-		if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1)
-		{
-			close(sockfd);
-			perror("server: TCP bind");
-			continue;
-		}
-
-		break;
 	}
 
-	freeaddrinfo(servinfo); // all done with this structure
+	sum = ~sum;
+	return sum;
+}
 
-	if (p == NULL)
-	{
-		fprintf(stderr, "server: failed to bind\n");
-		exit(1);
-	}
+int getPortNumber()
+{
+	return 10010 + (MASTER_GID % 30) * 5;
+}
 
-	if (listen(sockfd, BACKLOG) == -1)
-	{
-		perror("listen");
-		exit(1);
-	}
-
-	sa.sa_handler = sigchld_handler; // reap all dead processes
-	sigemptyset(&sa.sa_mask);
-	sa.sa_flags = SA_RESTART;
-	if (sigaction(SIGCHLD, &sa, NULL) == -1)
-	{
-		perror("sigaction");
-		exit(1);
-	}
-
-	////////////////////////////////////////////////////////////
-	memset(&hints, 0, sizeof hints);
-	hints.ai_family = AF_UNSPEC;	// set to AF_INET to force IPv4
-	hints.ai_socktype = SOCK_DGRAM; // datagram for UDP
-	hints.ai_flags = AI_PASSIVE;	// use my IP
-
-	if (argc != 2)
-	{
-		fprintf(stderr, "usage: server portnumber");
-		exit(1);
-	}
-
-	portNumber = argv[1];
-
-	if ((rv = getaddrinfo(NULL, portNumber, &hints, &servinfo)) != 0)
-	{
-		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-		return 1;
-	}
-
-	// loop through all the results and bind to the first we can
-	for (p = servinfo; p != NULL; p = p->ai_next)
-	{
-		if ((udpfd = socket(p->ai_family, p->ai_socktype,
-							p->ai_protocol)) == -1)
-		{
-			perror("listener: socket");
-			continue;
-		}
-
-		if (bind(udpfd, p->ai_addr, p->ai_addrlen) == -1)
-		{
-			close(udpfd);
-			perror("listener: bind");
-			continue;
-		}
-		break;
-	}
-
-	if (p == NULL)
-	{
-		fprintf(stderr, "listener: failed to bind socket\n");
-		return 2;
-	}
-
-	freeaddrinfo(servinfo);
-
-	/* create UDP socket */
-	//udpfd = socket(AF_INET, SOCK_DGRAM, 0);
-	// binding server addr structure to udp sockfd
-	//bind(udpfd, (struct sockaddr*)&servaddr, sizeof(servaddr));
-
+void *selectServerThread(void *vargp)
+{
 	// clear the descriptor set
 	FD_ZERO(&rset);
-
 	maxfd = max(sockfd, udpfd) + 1;
 
 	while (1)
 	{
-
 		// set sockfd and udpfd in readset
 		FD_SET(sockfd, &rset);
 		FD_SET(udpfd, &rset);
@@ -431,6 +355,151 @@ int main(int argc, char *argv[])
 						*/
 		}
 	}
+}
+
+void *sendDatagramThread(void *vargp)
+{
+	
+}
+
+int main(int argc, char *argv[])
+{
+
+	pthread_create(&server_thread_id, NULL, selectServerThread, NULL);
+	pthread_create(&send_dgram_thread_id, NULL, sendDatagramThread, NULL);
+	pthread_join(server_thread_id, NULL);
+	pthread_join(send_dgram_thread_id, NULL);
+
+	// initializing the master node of the linked list.
+	master = malloc(sizeof(struct Node));
+	master->GID = MASTER_GID;
+	master->IP = MASTER_IP;
+	master->RID = 0;
+	master->nextRID = 1;
+	master->next = master;
+	master->nextSlaveIP = master->next->IP;
+
+	memset(&hints, 0, sizeof hints);
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = AI_PASSIVE; // use my IP
+
+	if (argc != 2)
+	{ //error entering in command line prompt: client servername
+		fprintf(stderr, "usage: server portNumber\n");
+		exit(1);
+	}
+
+	portNumber = argv[1];
+
+	if ((rv = getaddrinfo(NULL, portNumber, &hints, &servinfo)) != 0)
+	{
+		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+		return 1;
+	}
+
+	// loop through all the results and bind to the first we can
+	for (p = servinfo; p != NULL; p = p->ai_next)
+	{
+		if ((sockfd = socket(p->ai_family, p->ai_socktype,
+							 p->ai_protocol)) == -1)
+		{
+			perror("server: TCP socket");
+			continue;
+		}
+
+		if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes,
+					   sizeof(int)) == -1)
+		{
+			perror("setsockopt");
+			exit(1);
+		}
+
+		if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1)
+		{
+			close(sockfd);
+			perror("server: TCP bind");
+			continue;
+		}
+
+		break;
+	}
+
+	freeaddrinfo(servinfo); // all done with this structure
+
+	if (p == NULL)
+	{
+		fprintf(stderr, "server: failed to bind\n");
+		exit(1);
+	}
+
+	if (listen(sockfd, BACKLOG) == -1)
+	{
+		perror("listen");
+		exit(1);
+	}
+
+	sa.sa_handler = sigchld_handler; // reap all dead processes
+	sigemptyset(&sa.sa_mask);
+	sa.sa_flags = SA_RESTART;
+	if (sigaction(SIGCHLD, &sa, NULL) == -1)
+	{
+		perror("sigaction");
+		exit(1);
+	}
+
+	////////////////////////////////////////////////////////////
+	memset(&hints, 0, sizeof hints);
+	hints.ai_family = AF_UNSPEC;	// set to AF_INET to force IPv4
+	hints.ai_socktype = SOCK_DGRAM; // datagram for UDP
+	hints.ai_flags = AI_PASSIVE;	// use my IP
+
+	if (argc != 2)
+	{
+		fprintf(stderr, "usage: server portnumber");
+		exit(1);
+	}
+
+	portNumber = argv[1];
+
+	if ((rv = getaddrinfo(NULL, portNumber, &hints, &servinfo)) != 0)
+	{
+		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+		return 1;
+	}
+
+	// loop through all the results and bind to the first we can
+	for (p = servinfo; p != NULL; p = p->ai_next)
+	{
+		if ((udpfd = socket(p->ai_family, p->ai_socktype,
+							p->ai_protocol)) == -1)
+		{
+			perror("listener: socket");
+			continue;
+		}
+
+		if (bind(udpfd, p->ai_addr, p->ai_addrlen) == -1)
+		{
+			close(udpfd);
+			perror("listener: bind");
+			continue;
+		}
+		break;
+	}
+
+	if (p == NULL)
+	{
+		fprintf(stderr, "listener: failed to bind socket\n");
+		return 2;
+	}
+
+	freeaddrinfo(servinfo);
+
+	/* create UDP socket */
+	//udpfd = socket(AF_INET, SOCK_DGRAM, 0);
+	// binding server addr structure to udp sockfd
+	//bind(udpfd, (struct sockaddr*)&servaddr, sizeof(servaddr));
+
 	close(sockfd); // parent doesn't need this
 	//exit(0);
 	return 0;
