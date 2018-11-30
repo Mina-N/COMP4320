@@ -30,6 +30,7 @@ const uint8_t MASTER_GID = 12;
 const uint32_t MAGIC_NUMBER = 0x4A6F7921;
 char *portNumber;
 struct Node *master;
+struct sockaddr my_addr;
 
 char *convertLongToIP(uint32_t num)
 {
@@ -102,7 +103,7 @@ void addSlaveNode(struct Node *master, struct Node *slave)
 	master->next = slave;
 	master->nextRID += 1;
 
-	char* nextIP = convertLongToIP(master->nextSlaveIP);
+	char *nextIP = convertLongToIP(master->nextSlaveIP);
 	printf("Next Slave IP: %s", nextIP);
 }
 
@@ -207,14 +208,14 @@ void *addSlaveNodeThread(void *vargp)
 
 	printf("Waiting to receive message from client...\n");
 
-	// sa.sa_handler = sigchld_handler; // reap all dead processes
-	// sigemptyset(&sa.sa_mask);
-	// sa.sa_flags = SA_RESTART;
-	// if (sigaction(SIGCHLD, &sa, NULL) == -1)
-	// {
-	// 	perror("sigaction");
-	// 	exit(1);
-	// }
+	sa.sa_handler = sigchld_handler; // reap all dead processes
+	sigemptyset(&sa.sa_mask);
+	sa.sa_flags = SA_RESTART;
+	if (sigaction(SIGCHLD, &sa, NULL) == -1)
+	{
+		perror("sigaction");
+		exit(1);
+	}
 
 	while (1)
 	{
@@ -577,10 +578,28 @@ int main(int argc, char *argv[])
 
 	portNumber = argv[1];
 
+	struct addrinfo *addr_info;
+	char myName[1024];
+	myName[1023] = '\0';
+
+	//Added this information below
+	gethostname(myName, 1024);
+	//printf("hostname: %s\n", myName);
+	int return_value = getaddrinfo(myName, portNumber, NULL, &addr_info);
+	if (return_value != 0)
+	{
+		printf("addr_info is null");
+		printf("%d", return_value);
+	}
+	my_addr = *(addr_info->ai_addr);
+	unsigned long myIPAsInt = ((struct sockaddr_in *)&my_addr)->sin_addr.s_addr;
+	unsigned long next_slaveIP = myIPAsInt;
+	uint32_t next_slave_IP = ntohl(next_slaveIP);
+
 	// initializing the master node of the linked list.
 	master = malloc(sizeof(struct Node));
 	master->GID = MASTER_GID;
-	master->IP = MASTER_IP;
+	master->IP = next_slave_IP;
 	master->RID = 0;
 	master->nextRID = 1;
 	master->next = master;
