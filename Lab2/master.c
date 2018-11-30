@@ -31,6 +31,15 @@ const uint32_t MAGIC_NUMBER = 0x4A6F7921;
 char *portNumber;
 struct Node *master;
 
+char *convertLongToIP(uint32_t num)
+{
+	uint32_t toNetworkIP = htonl(num);
+	struct in_addr ip_addr;
+	ip_addr.s_addr = num;
+	char *ip = inet_ntoa(ip_addr);
+	return ip;
+}
+
 void sigchld_handler(int s)
 {
 	// waitpid() might overwrite errno, so we save and restore it:
@@ -92,6 +101,9 @@ void addSlaveNode(struct Node *master, struct Node *slave)
 	master->nextSlaveIP = slave->IP;
 	master->next = slave;
 	master->nextRID += 1;
+
+	char* nextIP = convertLongToIP(master->nextSlaveIP);
+	printf("Next Slave IP: %s", nextIP);
 }
 
 uint8_t getChecksum(uint8_t *message, size_t len)
@@ -229,12 +241,12 @@ void *addSlaveNodeThread(void *vargp)
 		}
 
 		request.magic_number = ntohl(request.magic_number);
-		// printf("--------------------------------------------------------\n");
-		// printf("Message received:\n");
-		// printf("Buf size: %lu \n", sizeof(request));
-		// printf("Magic Number: %#04x\n", request.magic_number);
-		// printf("GID: %d\n", request.gid);
-		// printf("--------------------------------------------------------\n");
+		printf("--------------------------------------------------------\n");
+		printf("Message received:\n");
+		printf("Buf size: %lu \n", sizeof(request));
+		printf("Magic Number: %#04x\n", request.magic_number);
+		printf("GID: %d\n", request.gid);
+		printf("--------------------------------------------------------\n");
 
 		// message validation
 		if (sizeof(request) != 5)
@@ -261,20 +273,20 @@ void *addSlaveNodeThread(void *vargp)
 		response.nextRID = master->next->RID;
 		response.nextSlaveIP = slave->nextSlaveIP;
 
-		// printf("--------------------------------------------------------\n");
-		// printf("Message being sent:\n");
-		// printf("GID: %d\n", response.gid);
-		// printf("Magic Number: %#04x\n", response.magic_number);
-		// printf("RID: %d\n", response.nextRID);
-		// printf("IP: %s\n", inet_ntoa(get_ip->sin_addr));
+		printf("--------------------------------------------------------\n");
+		printf("Message being sent:\n");
+		printf("GID: %d\n", response.gid);
+		printf("Magic Number: %#04x\n", response.magic_number);
+		printf("RID: %d\n", response.nextRID);
+		printf("IP: %s\n", inet_ntoa(get_ip->sin_addr));
 
-		// printf("Message being sent(hex): ");
-		// printf("%#04x\\", response.gid);
-		// printf("%#04x\\", response.magic_number);
-		// printf("%#04x\\", response.nextRID);
-		// printf("%#04x\\", response.nextSlaveIP);
-		// printf("\n");
-		// printf("--------------------------------------------------------\n");
+		printf("Message being sent(hex): ");
+		printf("%#04x\\", response.gid);
+		printf("%#04x\\", response.magic_number);
+		printf("%#04x\\", response.nextRID);
+		printf("%#04x\\", response.nextSlaveIP);
+		printf("\n");
+		printf("--------------------------------------------------------\n");
 
 		if (send(new_fd, &response, sizeof(response), 0) == -1)
 		{
@@ -500,57 +512,57 @@ void *sendMessageThread(void *vargp)
 		hints.ai_socktype = SOCK_DGRAM; // datagram for UDP
 		hints.ai_flags = AI_PASSIVE;	// use my IP
 
-		uint32_t nextSlaveVal = htonl(master->nextSlaveIP);
-		struct in_addr ip_addr;
-		ip_addr.s_addr = nextSlaveVal;
-		char *ip = inet_ntoa(ip_addr);
-		printf("Next IP %s", ip);
+		// uint32_t nextSlaveVal = htonl(master->nextSlaveIP);
+		// struct in_addr ip_addr;
+		// ip_addr.s_addr = nextSlaveVal;
+		char *ip = convertLongToIP(master->nextSlaveIP);
+		printf("Next IP %s\n", ip);
 
 		// memcpy(nextSlaveIP, (char *)&nextSlaveVal, sizeof(nextSlaveVal));
 
-		if ((rv = getaddrinfo(ip, portNumber, &hints, &servinfo)) != 0)
-		{
-			fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-			return NULL;
-		}
+		// if ((rv = getaddrinfo(ip, portNumber, &hints, &servinfo)) != 0)
+		// {
+		// 	fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+		// 	return NULL;
+		// }
 
-		// loop through all the results and bind to the first we can
-		for (p = servinfo; p != NULL; p = p->ai_next)
-		{
-			if ((sockfd = socket(p->ai_family, p->ai_socktype,
-								 p->ai_protocol)) == -1)
-			{
-				perror("listener: socket");
-				continue;
-			}
+		// // loop through all the results and bind to the first we can
+		// for (p = servinfo; p != NULL; p = p->ai_next)
+		// {
+		// 	if ((sockfd = socket(p->ai_family, p->ai_socktype,
+		// 						 p->ai_protocol)) == -1)
+		// 	{
+		// 		perror("listener: socket");
+		// 		continue;
+		// 	}
 
-			if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1)
-			{
-				close(sockfd);
-				perror("listener: bind");
-				continue;
-			}
-			break;
-		}
+		// 	if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1)
+		// 	{
+		// 		close(sockfd);
+		// 		perror("listener: bind");
+		// 		continue;
+		// 	}
+		// 	break;
+		// }
 
-		if (p == NULL)
-		{
-			fprintf(stderr, "listener: failed to bind socket\n");
-			return NULL;
-		}
+		// if (p == NULL)
+		// {
+		// 	fprintf(stderr, "listener: failed to bind socket\n");
+		// 	return NULL;
+		// }
 
-		freeaddrinfo(servinfo);
+		// freeaddrinfo(servinfo);
 
-		printf("sending message...\n");
+		// printf("sending message...\n");
 
-		if ((numbytes = sendto(sockfd, &dgram, sizeof(dgram), 0,
-							   p->ai_addr, p->ai_addrlen)) == -1)
-		{
-			perror("talker: sendto");
-			exit(1);
-		}
+		// if ((numbytes = sendto(sockfd, &dgram, sizeof(dgram), 0,
+		// 					   p->ai_addr, p->ai_addrlen)) == -1)
+		// {
+		// 	perror("talker: sendto");
+		// 	exit(1);
+		// }
 
-		close(sockfd);
+		// close(sockfd);
 	}
 	return NULL;
 }
