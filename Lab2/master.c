@@ -241,12 +241,12 @@ void *addSlaveNodeThread(void *vargp)
 		}
 
 		request.magic_number = ntohl(request.magic_number);
-		printf("--------------------------------------------------------\n");
-		printf("Message received:\n");
-		printf("Buf size: %lu \n", sizeof(request));
-		printf("Magic Number: %#04x\n", request.magic_number);
-		printf("GID: %d\n", request.gid);
-		printf("--------------------------------------------------------\n");
+		// printf("--------------------------------------------------------\n");
+		// printf("Message received:\n");
+		// printf("Buf size: %lu \n", sizeof(request));
+		// printf("Magic Number: %#04x\n", request.magic_number);
+		// printf("GID: %d\n", request.gid);
+		// printf("--------------------------------------------------------\n");
 
 		// message validation
 		if (sizeof(request) != 5)
@@ -273,20 +273,20 @@ void *addSlaveNodeThread(void *vargp)
 		response.nextRID = master->next->RID;
 		response.nextSlaveIP = slave->nextSlaveIP;
 
-		printf("--------------------------------------------------------\n");
-		printf("Message being sent:\n");
-		printf("GID: %d\n", response.gid);
-		printf("Magic Number: %#04x\n", response.magic_number);
-		printf("RID: %d\n", response.nextRID);
-		printf("IP: %s\n", inet_ntoa(get_ip->sin_addr));
+		// printf("--------------------------------------------------------\n");
+		// printf("Message being sent:\n");
+		// printf("GID: %d\n", response.gid);
+		// printf("Magic Number: %#04x\n", response.magic_number);
+		// printf("RID: %d\n", response.nextRID);
+		// printf("IP: %s\n", inet_ntoa(get_ip->sin_addr));
 
-		printf("Message being sent(hex): ");
-		printf("%#04x\\", response.gid);
-		printf("%#04x\\", response.magic_number);
-		printf("%#04x\\", response.nextRID);
-		printf("%#04x\\", response.nextSlaveIP);
-		printf("\n");
-		printf("--------------------------------------------------------\n");
+		// printf("Message being sent(hex): ");
+		// printf("%#04x\\", response.gid);
+		// printf("%#04x\\", response.magic_number);
+		// printf("%#04x\\", response.nextRID);
+		// printf("%#04x\\", response.nextSlaveIP);
+		// printf("\n");
+		// printf("--------------------------------------------------------\n");
 
 		if (send(new_fd, &response, sizeof(response), 0) == -1)
 		{
