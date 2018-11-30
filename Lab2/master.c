@@ -504,6 +504,7 @@ void *sendMessageThread(void *vargp)
 		struct in_addr ip_addr;
 		ip_addr.s_addr = nextSlaveVal;
 		char *ip = inet_ntoa(ip_addr);
+		printf("Next IP %s", ip);
 
 		// memcpy(nextSlaveIP, (char *)&nextSlaveVal, sizeof(nextSlaveVal));
 
