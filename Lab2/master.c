@@ -570,6 +570,8 @@ void *sendMessageThread(void *vargp)
 
 int main(int argc, char *argv[])
 {
+
+	printf("HELLLOOOOO");
 	if (argc != 2)
 	{ //error entering in command line prompt: client servername
 		fprintf(stderr, "usage: server portNumber\n");
@@ -595,6 +597,7 @@ int main(int argc, char *argv[])
 	unsigned long myIPAsInt = ((struct sockaddr_in *)&my_addr)->sin_addr.s_addr;
 	unsigned long next_slaveIP = myIPAsInt;
 	uint32_t next_slave_IP = ntohl(next_slaveIP);
+	printf("IP address is: %d", next_slave_IP);
 
 	// initializing the master node of the linked list.
 	master = malloc(sizeof(struct Node));
