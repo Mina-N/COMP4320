@@ -98,15 +98,14 @@ int main(void)
 	printf("listener: waiting to recvfrom...\n");
 
 	addr_len = sizeof their_addr;
-	if ((numbytes = recvfrom(sockfd, &requested_datagram, sizeof(requested_datagram), 0,
+	if ((numbytes = recvfrom(sockfd, &buf, sizeof(buf), 0,
 							 (struct sockaddr *)&their_addr, &addr_len)) == -1)
 	{
 		perror("recvfrom");
 		exit(1);
 	}
 
-	printf("RID received: %d\n", requested_datagram.rid);
-	printf("Message received: %s\n", requested_datagram.message);
+	printf("Message received: %s\n", buf);
 
 	printf("listener: got packet from %s\n",
 		   inet_ntop(their_addr.ss_family,

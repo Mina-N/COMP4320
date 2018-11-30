@@ -27,36 +27,9 @@
 //     exit(0);
 // }
 const uint8_t MASTER_GID = 12;
-const long MAGIC_NUMBER = 0x4A6F7921;
-int sockfd, udpfd, new_fd, maxfd, nready, num_bytes, read_value; // listen on sock_fd, new connection on new_fd
-fd_set rset;
-struct addrinfo hints, *servinfo, *p;
-struct sockaddr_storage their_addr; // connector's address information
-socklen_t sin_size;
-struct sigaction sa;
-int yes = 1;
-char s[INET6_ADDRSTRLEN];
-int rv;
-struct message_request buf;
-struct message_request_udp udp_buf;
-struct message_response response;
-struct message_response_udp udp_response;
-pid_t childpid;
-char *message_buf;
-unsigned char msg_sent[10];
-char message[MAXDATASIZE];
-char nextSlaveIP[15];
+const uint32_t MAGIC_NUMBER = 0x4A6F7921;
 char *portNumber;
-char buffer[1024];
-ssize_t n;
-socklen_t len;
-const int on = 1;
-struct sockaddr_in cliaddr, servaddr;
-socklen_t addr_len;
 struct Node *master;
-
-pthread_t server_thread_id;
-pthread_t send_dgram_thread_id;
 
 void sigchld_handler(int s)
 {
@@ -121,13 +94,12 @@ void addSlaveNode(struct Node *master, struct Node *slave)
 	master->nextRID += 1;
 }
 
-uint8_t getChecksum(char *message)
+uint8_t getChecksum(uint8_t *message, size_t len)
 {
 
-	size_t message_len = sizeof(message) - 1;
 	uint8_t sum = 0;
 
-	for (int i = 1; i < message_len; i++)
+	for (int i = 1; i < len; i++)
 	{
 		uint8_t byte1 = message[i - 1];
 		uint8_t byte2 = message[i];
@@ -146,256 +118,36 @@ uint8_t getChecksum(char *message)
 	return sum;
 }
 
-int getPortNumber()
+int getPortNumber(uint8_t rid)
 {
-	return 10010 + (MASTER_GID % 30) * 5;
+	return 10010 + (MASTER_GID % 30) * 5 + rid;
 }
 
-void *selectServerThread(void *vargp)
+// this is a tcp connection that waits to receive messages from slaves
+// and add the slave nodes to the node ring
+void *addSlaveNodeThread(void *vargp)
 {
-	// clear the descriptor set
-	FD_ZERO(&rset);
-	maxfd = max(sockfd, udpfd) + 1;
+	int sockfd, new_fd, read_value;
+	struct addrinfo hints, *servinfo, *p;
+	struct sockaddr_storage their_addr; // connector's address information
+	socklen_t sin_size;
+	struct sigaction sa;
+	int yes = 1;
+	char s[INET6_ADDRSTRLEN];
+	int rv;
+	struct message_request request;
+	struct message_response response;
 
-	while (1)
-	{
-		// set sockfd and udpfd in readset
-		FD_SET(sockfd, &rset);
-		FD_SET(udpfd, &rset);
-
-		// select the ready descriptor
-		nready = select(maxfd, &rset, NULL, NULL, NULL);
-
-		// if tcp socket is readable then handle
-		// it by accepting the connection
-		if (FD_ISSET(sockfd, &rset))
-		{
-			printf("TCP SOCKET\n");
-			new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
-			if (new_fd == -1)
-			{
-				perror("accept");
-				continue;
-			}
-			if ((childpid = fork()) == 0)
-			{
-				//////////////////////////////////
-				sin_size = sizeof their_addr;
-				inet_ntop(their_addr.ss_family,
-						  get_in_addr((struct sockaddr *)&their_addr),
-						  s, sizeof s);
-				printf("server: got connection from %s\n", s);
-
-				/* Listen for response from client */
-				read_value = recv(new_fd, &buf, MAXDATASIZE - 1, 0);
-
-				if (read_value < 0)
-				{
-					perror("read from socket");
-					exit(1);
-				}
-
-				buf.magic_number = ntohl(buf.magic_number);
-				printf("--------------------------------------------------------\n");
-				printf("Message received:\n");
-				printf("Buf size: %lu \n", sizeof(buf));
-				printf("Magic Number: %#04x\n", buf.magic_number);
-				printf("GID: %d\n", buf.gid);
-				printf("--------------------------------------------------------\n");
-
-				// message validation
-				if (sizeof(buf) != 5)
-				{
-					perror("Size of message received is not 5 bytes");
-				}
-				if (buf.magic_number != MAGIC_NUMBER)
-				{
-					perror("Magic number is not included");
-				}
-
-				struct Node *slave = malloc(sizeof(struct Node));
-				struct sockaddr_in *get_ip = (struct sockaddr_in *)&their_addr;
-				// memcpy(&master->nextSlaveIP, inet_ntoa(get_ip->sin_addr), 4);
-				slave->GID = buf.gid;
-				slave->IP = get_ip->sin_addr.s_addr;
-				slave->nextRID = 0;
-
-				addSlaveNode(master, slave);
-
-				//response.gid = MASTER_GID;
-				response.gid = buf.gid;
-				response.magic_number = MAGIC_NUMBER;
-				response.nextRID = master->next->RID;
-				response.nextSlaveIP = slave->nextSlaveIP;
-
-				printf("--------------------------------------------------------\n");
-				printf("Message being sent:\n");
-				printf("GID: %d\n", response.gid);
-				printf("Magic Number: %#04x\n", response.magic_number);
-				printf("RID: %d\n", response.nextRID);
-				printf("IP: %s\n", inet_ntoa(get_ip->sin_addr));
-
-				printf("Message being sent(hex): ");
-				printf("%#04x\\", response.gid);
-				printf("%#04x\\", response.magic_number);
-				printf("%#04x\\", response.nextRID);
-				printf("%#04x\\", response.nextSlaveIP);
-				printf("\n");
-				printf("--------------------------------------------------------\n");
-
-				if (send(new_fd, &response, sizeof(response), 0) == -1)
-				{
-					perror("send");
-					exit(1);
-				}
-				//exit(0);
-				//}
-				printf("Server: Response sent\n");
-				printf("Waiting for response from Client...\n");
-			}
-		}
-
-		// if udp socket is readable receive the message.
-
-		if (FD_ISSET(udpfd, &rset))
-		{
-			int rid;
-			char m[] = "";
-			printf("UDP SOCKET\n");
-			printf("Please enter the Ring ID\n");
-			scanf("%d", &rid);
-			printf("Please enter the Message\n");
-			scanf("%s", m);
-
-			addr_len = sizeof their_addr;
-			if ((num_bytes = recvfrom(sockfd, buffer, 1000, 0,
-									  (struct sockaddr *)&their_addr, &addr_len)) == -1)
-			{
-				perror("recvfrom");
-				// close(sockfd);
-				exit(1);
-			}
-
-			printf("listener: got message from %s\n",
-				   inet_ntop(their_addr.ss_family,
-							 get_in_addr((struct sockaddr *)&their_addr),
-							 s, sizeof s));
-
-			printf("listener: message is %d bytes long\n", num_bytes);
-			buffer[num_bytes] = '\0';
-
-			printf("listener: received message (in hex) contains: ");
-
-			int i = 0;
-
-			while (i < 8)
-			{
-				printf("%#04x\\", buffer[i]);
-				i += 1;
-			}
-
-			printf("\n");
-
-			// set message to message_receive struct
-			udp_buf.gid = buffer[0];
-			udp_buf.magic_number = buffer[1];
-			udp_buf.ttl = buffer[2];
-			udp_buf.rid_dest = buffer[3];
-			udp_buf.rid_src = buffer[4];
-			//memcpy(buffer[6], &udp_buf.message, 1);
-
-			/*
-						buf.total_message_length = buffer[0];
-						buf.request_id = buffer[1];
-						buf.op_code = buffer[2];
-						buf.num_operands = buffer[3];
-						buf.op_1 = htons((buffer[5] << 8) | buffer[4]);
-						buf.op_2 = htons((buffer[7] << 8) | buffer[6]);
-
-						if(buf.op_code == 6) {
-							buf.op_2 = 0;
-						}
-
-						// // check errors
-						error_code = checkErrors(buf, buf.op_code);
-
-						if(error_code == 0) {
-							result = getResult(buf.op_1, buf.op_code, buf.op_2);
-						}
-						else {
-							result = 0;
-						}
-
-						printf("Result: %d\n", result);
-
-						message.total_message_length = RESPONSE_BYTES;
-						message.result = htonl(result);
-						message.request_ID = buf.request_id;
-						message.error_code = error_code;
-
-						memcpy(responseArr, &message.total_message_length, 1);
-						memcpy(responseArr + 1, &message.request_ID, 1);
-						memcpy(responseArr + 2, &message.error_code, 1);
-						memcpy(responseArr + 3, &message.result, 4);
-
-						printf("Message being sent (in hex): ");
-						int j = 0;
-						while(j < 7) {
-							printf("%#04x\\", responseArr[j]);
-							j++;
-						}
-						printf("\n");
-
-						if (sendto(sockfd, responseArr, sizeof(responseArr), 0,
-								   (const struct sockaddr *)&their_addr, addr_len) == -1)
-						{
-							perror("sendto");
-							exit(1);
-						}
-						*/
-		}
-	}
-}
-
-void *sendDatagramThread(void *vargp)
-{
-	
-}
-
-int main(int argc, char *argv[])
-{
-
-	pthread_create(&server_thread_id, NULL, selectServerThread, NULL);
-	pthread_create(&send_dgram_thread_id, NULL, sendDatagramThread, NULL);
-	pthread_join(server_thread_id, NULL);
-	pthread_join(send_dgram_thread_id, NULL);
-
-	// initializing the master node of the linked list.
-	master = malloc(sizeof(struct Node));
-	master->GID = MASTER_GID;
-	master->IP = MASTER_IP;
-	master->RID = 0;
-	master->nextRID = 1;
-	master->next = master;
-	master->nextSlaveIP = master->next->IP;
-
+	// TCP
 	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_PASSIVE; // use my IP
 
-	if (argc != 2)
-	{ //error entering in command line prompt: client servername
-		fprintf(stderr, "usage: server portNumber\n");
-		exit(1);
-	}
-
-	portNumber = argv[1];
-
 	if ((rv = getaddrinfo(NULL, portNumber, &hints, &servinfo)) != 0)
 	{
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-		return 1;
+		return NULL;
 	}
 
 	// loop through all the results and bind to the first we can
@@ -433,54 +185,148 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
+	// printf("Wating to receive message from client...\n");
+
 	if (listen(sockfd, BACKLOG) == -1)
 	{
 		perror("listen");
 		exit(1);
 	}
 
-	sa.sa_handler = sigchld_handler; // reap all dead processes
-	sigemptyset(&sa.sa_mask);
-	sa.sa_flags = SA_RESTART;
-	if (sigaction(SIGCHLD, &sa, NULL) == -1)
+	printf("Waiting to receive message from client...\n");
+
+	// sa.sa_handler = sigchld_handler; // reap all dead processes
+	// sigemptyset(&sa.sa_mask);
+	// sa.sa_flags = SA_RESTART;
+	// if (sigaction(SIGCHLD, &sa, NULL) == -1)
+	// {
+	// 	perror("sigaction");
+	// 	exit(1);
+	// }
+
+	while (1)
 	{
-		perror("sigaction");
-		exit(1);
+		new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
+		if (new_fd == -1)
+		{
+			perror("accept");
+			continue;
+		}
+
+		sin_size = sizeof their_addr;
+		inet_ntop(their_addr.ss_family,
+				  get_in_addr((struct sockaddr *)&their_addr),
+				  s, sizeof s);
+		printf("server: got connection from %s\n", s);
+
+		/* Listen for response from client */
+		read_value = recv(new_fd, &request, sizeof(request), 0);
+
+		if (read_value < 0)
+		{
+			perror("read from socket");
+			exit(1);
+		}
+
+		request.magic_number = ntohl(request.magic_number);
+		// printf("--------------------------------------------------------\n");
+		// printf("Message received:\n");
+		// printf("Buf size: %lu \n", sizeof(request));
+		// printf("Magic Number: %#04x\n", request.magic_number);
+		// printf("GID: %d\n", request.gid);
+		// printf("--------------------------------------------------------\n");
+
+		// message validation
+		if (sizeof(request) != 5)
+		{
+			perror("Size of message received is not 5 bytes");
+		}
+		if (request.magic_number != MAGIC_NUMBER)
+		{
+			perror("Magic number is not included");
+		}
+
+		struct Node *slave = malloc(sizeof(struct Node));
+		struct sockaddr_in *get_ip = (struct sockaddr_in *)&their_addr;
+		// memcpy(&master->nextSlaveIP, inet_ntoa(get_ip->sin_addr), 4);
+		slave->GID = request.gid;
+		slave->IP = get_ip->sin_addr.s_addr;
+		slave->nextRID = 0;
+
+		addSlaveNode(master, slave);
+
+		//response.gid = MASTER_GID;
+		response.gid = request.gid;
+		response.magic_number = MAGIC_NUMBER;
+		response.nextRID = master->next->RID;
+		response.nextSlaveIP = slave->nextSlaveIP;
+
+		// printf("--------------------------------------------------------\n");
+		// printf("Message being sent:\n");
+		// printf("GID: %d\n", response.gid);
+		// printf("Magic Number: %#04x\n", response.magic_number);
+		// printf("RID: %d\n", response.nextRID);
+		// printf("IP: %s\n", inet_ntoa(get_ip->sin_addr));
+
+		// printf("Message being sent(hex): ");
+		// printf("%#04x\\", response.gid);
+		// printf("%#04x\\", response.magic_number);
+		// printf("%#04x\\", response.nextRID);
+		// printf("%#04x\\", response.nextSlaveIP);
+		// printf("\n");
+		// printf("--------------------------------------------------------\n");
+
+		if (send(new_fd, &response, sizeof(response), 0) == -1)
+		{
+			perror("send");
+			exit(1);
+		}
+		//exit(0);
+		//}
+		// printf("Server: Response sent\n");
 	}
 
-	////////////////////////////////////////////////////////////
+	close(sockfd);
+	return NULL;
+}
+
+// UDP server that receives datagrams. If the datagram is for them, displays the datagram,
+// if not, sends the datagram to the next Slave IP.
+void *handleDatagramThread(void *vargp)
+{
+	int sockfd, new_fd, read_value;
+	struct addrinfo hints, *servinfo, *p;
+	int rv;
+	int numbytes;
+	struct sockaddr_storage their_addr;
+	struct datagram_message *dgram;
+	socklen_t addr_len;
+	char s[INET6_ADDRSTRLEN];
+
 	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_UNSPEC;	// set to AF_INET to force IPv4
 	hints.ai_socktype = SOCK_DGRAM; // datagram for UDP
 	hints.ai_flags = AI_PASSIVE;	// use my IP
 
-	if (argc != 2)
-	{
-		fprintf(stderr, "usage: server portnumber");
-		exit(1);
-	}
-
-	portNumber = argv[1];
-
 	if ((rv = getaddrinfo(NULL, portNumber, &hints, &servinfo)) != 0)
 	{
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-		return 1;
+		return NULL;
 	}
 
 	// loop through all the results and bind to the first we can
 	for (p = servinfo; p != NULL; p = p->ai_next)
 	{
-		if ((udpfd = socket(p->ai_family, p->ai_socktype,
-							p->ai_protocol)) == -1)
+		if ((sockfd = socket(p->ai_family, p->ai_socktype,
+							 p->ai_protocol)) == -1)
 		{
 			perror("listener: socket");
 			continue;
 		}
 
-		if (bind(udpfd, p->ai_addr, p->ai_addrlen) == -1)
+		if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1)
 		{
-			close(udpfd);
+			close(sockfd);
 			perror("listener: bind");
 			continue;
 		}
@@ -490,17 +336,259 @@ int main(int argc, char *argv[])
 	if (p == NULL)
 	{
 		fprintf(stderr, "listener: failed to bind socket\n");
-		return 2;
+		return NULL;
 	}
 
 	freeaddrinfo(servinfo);
 
-	/* create UDP socket */
-	//udpfd = socket(AF_INET, SOCK_DGRAM, 0);
-	// binding server addr structure to udp sockfd
-	//bind(udpfd, (struct sockaddr*)&servaddr, sizeof(servaddr));
+	while (1)
+	{
+		printf("listener: waiting to recvfrom...\n");
 
-	close(sockfd); // parent doesn't need this
-	//exit(0);
+		addr_len = sizeof their_addr;
+		if ((numbytes = recvfrom(sockfd, &dgram, sizeof(dgram), 0,
+								 (struct sockaddr *)&their_addr, &addr_len)) == -1)
+		{
+			perror("recvfrom");
+			exit(1);
+		}
+
+		printf("listener: got packet from %s\n",
+			   inet_ntop(their_addr.ss_family,
+						 get_in_addr((struct sockaddr *)&their_addr),
+						 s, sizeof s));
+		printf("listener: packet is %d bytes long\n", numbytes);
+
+		// first, check the checksum
+
+		// get datagram in bytes
+		size_t dgram_len = sizeof(dgram);
+		unsigned char dgram_in_bytes[dgram_len];
+		memcpy(dgram_in_bytes, &dgram, dgram_len);
+		uint8_t checksum = getChecksum(dgram_in_bytes, dgram_len - 1);
+		int isCorrupted = checksum != dgram->checksum ? 1 : 0;
+
+		// if not corrupted, proceed
+		if (isCorrupted == 0)
+		{
+			// if the message is for me, display the message
+			if (dgram->rid_dest == master->RID)
+			{
+				printf("Datagram message: %s", dgram->message);
+			}
+			else if (dgram->ttl == 0)
+			{
+				printf("Time to live expired, dropping datagram");
+			}
+			// otherwise, forward the message to the next slave ip
+			else
+			{
+				// update ttl
+				dgram->ttl -= 1;
+
+				// update checksum
+
+				memcpy(dgram_in_bytes, &dgram, dgram_len);
+				checksum = getChecksum(dgram_in_bytes, dgram_len - 1);
+				dgram->checksum = checksum;
+
+				int sockfd2, new_fd2, read_value2;
+				struct addrinfo hints2, *servinfo2, *p2;
+				int rv2;
+				int numbytes2;
+
+				int nextPortNumber = getPortNumber(master->nextRID);
+
+				uint32_t nextSlaveVal = htonl(master->nextSlaveIP);
+				struct in_addr ip_addr;
+				ip_addr.s_addr = nextSlaveVal;
+				char *ip = inet_ntoa(ip_addr);
+				char port[6];
+				sprintf(port, "%d", nextSlaveVal);
+				printf("\n The string for the num is %s", port);
+
+				// send the updated datagram
+				if ((rv2 = getaddrinfo(ip, port, &hints2, &servinfo2)) != 0)
+				{
+					fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+					return NULL;
+				}
+
+				// loop through all the results and bind to the first we can
+				for (p2 = servinfo2; p2 != NULL; p2 = p2->ai_next)
+				{
+					if ((sockfd2 = socket(p2->ai_family, p2->ai_socktype,
+										  p2->ai_protocol)) == -1)
+					{
+						perror("listener: socket");
+						continue;
+					}
+
+					if (bind(sockfd2, p2->ai_addr, p2->ai_addrlen) == -1)
+					{
+						close(sockfd2);
+						perror("listener: bind");
+						continue;
+					}
+					break;
+				}
+
+				if (p2 == NULL)
+				{
+					fprintf(stderr, "listener: failed to bind socket\n");
+					return NULL;
+				}
+
+				freeaddrinfo(servinfo2);
+
+				printf("sending message...\n");
+
+				if ((numbytes2 = sendto(sockfd2, &dgram, sizeof(dgram), 0,
+										p2->ai_addr, p2->ai_addrlen)) == -1)
+				{
+					perror("talker: sendto");
+					exit(1);
+				}
+
+				close(sockfd2);
+			}
+		}
+	}
+
+	close(sockfd);
+
+	return NULL;
+}
+
+// sends a message to the node ring
+void *sendMessageThread(void *vargp)
+{
+	sleep(2);
+
+	int sockfd, new_fd, read_value;
+	struct addrinfo hints, *servinfo, *p;
+	int rv;
+	int numbytes;
+	struct sockaddr_storage their_addr;
+	struct datagram_message dgram;
+	socklen_t addr_len;
+	char s[INET6_ADDRSTRLEN];
+	unsigned char rid;
+	char message_to_send[64];
+
+	printf("\n");
+
+	// repeatedly prompt the user for input
+	while (1)
+	{
+
+		dgram.gid = MASTER_GID;
+		dgram.magic_number = MAGIC_NUMBER;
+		dgram.ttl = (uint8_t)255;
+		dgram.rid_src = master->RID;
+
+		printf("Please enter RID you want to send to: ");
+		scanf("%hhu", &rid);
+		printf("Please enter message you want to send: ");
+		scanf("%s", message_to_send);
+
+		dgram.rid_dest = rid;
+		dgram.message = message_to_send;
+
+		memset(&hints, 0, sizeof hints);
+		hints.ai_family = AF_UNSPEC;	// set to AF_INET to force IPv4
+		hints.ai_socktype = SOCK_DGRAM; // datagram for UDP
+		hints.ai_flags = AI_PASSIVE;	// use my IP
+
+		uint32_t nextSlaveVal = htonl(master->nextSlaveIP);
+		struct in_addr ip_addr;
+		ip_addr.s_addr = nextSlaveVal;
+		char *ip = inet_ntoa(ip_addr);
+
+		// memcpy(nextSlaveIP, (char *)&nextSlaveVal, sizeof(nextSlaveVal));
+
+		if ((rv = getaddrinfo(ip, portNumber, &hints, &servinfo)) != 0)
+		{
+			fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+			return NULL;
+		}
+
+		// loop through all the results and bind to the first we can
+		for (p = servinfo; p != NULL; p = p->ai_next)
+		{
+			if ((sockfd = socket(p->ai_family, p->ai_socktype,
+								 p->ai_protocol)) == -1)
+			{
+				perror("listener: socket");
+				continue;
+			}
+
+			if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1)
+			{
+				close(sockfd);
+				perror("listener: bind");
+				continue;
+			}
+			break;
+		}
+
+		if (p == NULL)
+		{
+			fprintf(stderr, "listener: failed to bind socket\n");
+			return NULL;
+		}
+
+		freeaddrinfo(servinfo);
+
+		printf("sending message...\n");
+
+		if ((numbytes = sendto(sockfd, &dgram, sizeof(dgram), 0,
+							   p->ai_addr, p->ai_addrlen)) == -1)
+		{
+			perror("talker: sendto");
+			exit(1);
+		}
+
+		close(sockfd);
+	}
+	return NULL;
+}
+
+int main(int argc, char *argv[])
+{
+	if (argc != 2)
+	{ //error entering in command line prompt: client servername
+		fprintf(stderr, "usage: server portNumber\n");
+		exit(1);
+	}
+
+	portNumber = argv[1];
+
+	// initializing the master node of the linked list.
+	master = malloc(sizeof(struct Node));
+	master->GID = MASTER_GID;
+	master->IP = MASTER_IP;
+	master->RID = 0;
+	master->nextRID = 1;
+	master->next = master;
+	master->nextSlaveIP = master->next->IP;
+
+	// you're going to create three seperate threads.
+	// 1. A TCP thread that adds slave nodes to the ring and sends back messages to the slave (Lab 2)
+	// 2. A UDP thread that receives datagrams and displays the message if its for it or forwards the datagram if not
+	// 3. A prompt that asks the user for a RID and a message m to send. This will be forwarded to the ring.
+
+	pthread_t addSlaveThreadID;
+	pthread_t handleDatagramID;
+	pthread_t sendMessageID;
+
+	pthread_create(&addSlaveThreadID, NULL, addSlaveNodeThread, NULL);
+	pthread_create(&handleDatagramID, NULL, handleDatagramThread, NULL);
+	pthread_create(&sendMessageID, NULL, sendMessageThread, NULL);
+
+	pthread_join(addSlaveThreadID, NULL);
+	pthread_join(handleDatagramID, NULL);
+	pthread_join(sendMessageID, NULL);
+
 	return 0;
 }
