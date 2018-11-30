@@ -242,12 +242,6 @@ void *addSlaveNodeThread(void *vargp)
 		}
 
 		request.magic_number = ntohl(request.magic_number);
-		printf("--------------------------------------------------------\n");
-		printf("Message received:\n");
-		printf("Buf size: %lu \n", sizeof(request));
-		printf("Magic Number: %#04x\n", request.magic_number);
-		printf("GID: %d\n", request.gid);
-		printf("--------------------------------------------------------\n");
 
 		// message validation
 		if (sizeof(request) != 5)
@@ -269,25 +263,31 @@ void *addSlaveNodeThread(void *vargp)
 		addSlaveNode(master, slave);
 
 		//response.gid = MASTER_GID;
-		response.gid = request.gid;
+		response.gid = MASTER_GID;
 		response.magic_number = MAGIC_NUMBER;
 		response.nextRID = master->next->RID;
-		response.nextSlaveIP = slave->nextSlaveIP;
+		uint32_t nextSlaveIP = ntohl(slave->nextSlaveIP);
+		struct in_addr ip_addr;
+		ip_addr.s_addr = ntohl(nextSlaveIP);
+
 
 		printf("--------------------------------------------------------\n");
 		printf("Message being sent:\n");
-		printf("GID: %d\n", response.gid);
+		printf("GID of Master: %d\n", response.gid);
 		printf("Magic Number: %#04x\n", response.magic_number);
 		printf("RID: %d\n", response.nextRID);
-		printf("IP: %s\n", inet_ntoa(get_ip->sin_addr));
+		printf("Next Slave IP: %s\n", inet_ntoa(ip_addr));
 
 		printf("Message being sent(hex): ");
 		printf("%#04x\\", response.gid);
 		printf("%#04x\\", response.magic_number);
 		printf("%#04x\\", response.nextRID);
-		printf("%#04x\\", response.nextSlaveIP);
+		printf("%#04x\\", nextSlaveIP);
 		printf("\n");
 		printf("--------------------------------------------------------\n");
+
+		response.nextSlaveIP = htonl(nextSlaveIP);
+
 
 		if (send(new_fd, &response, sizeof(response), 0) == -1)
 		{
