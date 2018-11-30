@@ -268,7 +268,7 @@ void *addSlaveNodeThread(void *vargp)
 		response.nextRID = master->next->RID;
 		uint32_t nextSlaveIP = ntohl(slave->nextSlaveIP);
 		struct in_addr ip_addr;
-		ip_addr.s_addr = ntohl(nextSlaveIP);
+		ip_addr.s_addr = nextSlaveIP;
 
 
 		printf("--------------------------------------------------------\n");
