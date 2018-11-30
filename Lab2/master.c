@@ -98,8 +98,8 @@ uint8_t getChecksum(uint8_t *message, size_t len)
 {
 
 	uint8_t sum = 0;
-
-	for (int i = 1; i < len; i++)
+	int i;
+	for (i = 1; i < len; i++)
 	{
 		uint8_t byte1 = message[i - 1];
 		uint8_t byte2 = message[i];
